@@ -1,0 +1,45 @@
+# R
+.Rhistory
+.RData
+.RDataTmp*
+.Rproj.user/
+*.Rproj
+
+# Environment / secrets
+.env
+.Renviron
+
+# OS
+.DS_Store
+
+# All data files (tracked via folder structure only)
+**/*.csv
+**/*.xlsx
+**/*.xls
+**/*.zip
+**/*.rds
+**/*.json
+**/*.html
+**/*.pdf
+**/*.Rmd
+**/*.shp
+**/*.dbf
+**/*.shx
+**/*.prj
+**/*.cpg
+**/*.sbn
+**/*.sbx
+
+# All content outside top-level R/ folder (keep folder structure via .gitkeep)
+data/*
+!data/socio-economic/
+data/socio-economic/*
+!data/socio-economic/Kenya/
+!data/socio-economic/SSD/
+!data/socio-economic/Somalia/
+docs/*
+outputs/*
+data_dictionnaries/*
+
+# But always allow .gitkeep to track empty dirs
+!**/.gitkeep
