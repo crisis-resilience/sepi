@@ -192,7 +192,7 @@ suggest_pillar <- function(description) {
 #' @return A data frame with one row per candidate variable
 explore_country_candidates <- function(
     country,
-    config        = INDICATOR_CONFIG,
+    config        = VERSIONS$v1_equal_geometric$countries,
     sepi_data     = NULL,
     metadata_file = GLOBAL_DATA$metadata_file,
     out_dir       = "outputs",
@@ -412,14 +412,14 @@ explore_all_candidates <- function(all_data,
 #' @return A ggplot object (invisibly)
 plot_candidate_correlation_matrix <- function(
     country,
-    config        = INDICATOR_CONFIG,
+    config        = VERSIONS$v1_equal_geometric$countries,
     metadata_file = GLOBAL_DATA$metadata_file,
     out_dir       = "outputs/figures",
     save          = TRUE,
     country_data  = NULL
 ) {
   country_cfg <- config[[country]]
-  if (is.null(country_cfg)) stop("Country '", country, "' not in INDICATOR_CONFIG.")
+  if (is.null(country_cfg)) stop("Country '", country, "' not found in config.")
   label <- country_label(country)
 
   raw_data <- if (!is.null(country_data)) {
@@ -642,11 +642,11 @@ plot_candidate_correlation_matrix <- function(
 #'
 #' @return Named list of ggplot objects (invisibly)
 plot_all_correlation_matrices <- function(
-    config   = INDICATOR_CONFIG,
+    config   = VERSIONS$v1_equal_geometric$countries,
     all_data = NULL,
     ...
 ) {
-  countries <- names(config)
+  countries <- if (!is.null(all_data)) names(all_data) else names(config)
 
   cat("\n========================================\n")
   cat(" Candidate Correlation Matrices\n")

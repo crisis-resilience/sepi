@@ -6,6 +6,18 @@ library(ggplot2)
 library(sf)
 library(patchwork)
 
+resolve_conflict_plot_var <- function(conflict_var, per_capita = TRUE) {
+  if (!per_capita) return(conflict_var)
+
+  rate_lookup <- c(
+    count_conflict_events = "count_conflicts_events_per_1k",
+    total_fatalities = "total_fatalities_per_1k"
+  )
+
+  resolved <- unname(rate_lookup[conflict_var])
+  if (length(resolved) == 0 || is.na(resolved)) conflict_var else resolved
+}
+
 # ---- 1. Rankings bar chart -------------------------------------------------
 
 plot_sepi_rankings <- function(sepi_result, country_name,
@@ -46,7 +58,12 @@ plot_pillar_heatmap <- function(sepi_result, country_name,
                                  country_config, conflict_data = NULL,
                                  save = TRUE) {
   label       <- country_label(country_name)
-  pillar_cols <- paste0("pillar_", names(country_config$pillars))
+  # For v1/v2 use pillars definition; for v3 use pillar_* columns present in data
+  if (!is.null(country_config$pillars)) {
+    pillar_cols <- paste0("pillar_", names(country_config$pillars))
+  } else {
+    pillar_cols <- grep("^pillar_", names(sepi_result), value = TRUE)
+  }
 
   df_long <- sepi_result |>
     dplyr::select(adm1_name, dplyr::all_of(pillar_cols)) |>
@@ -57,7 +74,7 @@ plot_pillar_heatmap <- function(sepi_result, country_name,
                           levels = sepi_result$adm1_name[order(sepi_result$sepi)])
     )
 
-  conflict_col <- "count_conflict_events_per_100k"
+  conflict_col <- "count_conflicts_events_per_1k"
   if (!is.null(conflict_data) && conflict_col %in% names(conflict_data)) {
     raw <- conflict_data[[conflict_col]]
     rng <- range(raw, na.rm = TRUE)
@@ -66,7 +83,7 @@ plot_pillar_heatmap <- function(sepi_result, country_name,
     df_conflict <- dplyr::tibble(
       adm1_name = factor(conflict_data$adm1_name,
                          levels = levels(df_long$adm1_name)),
-      pillar    = "Conflict\n(per 100k)",
+      pillar    = "Conflict\n(per 1k)",
       score     = normalised
     )
     df_long <- dplyr::bind_rows(df_long, df_conflict)
@@ -102,7 +119,7 @@ plot_sepi_vs_conflict <- function(conflict_result, country_name,
   label <- country_label(country_name)
   data  <- conflict_result$data
 
-  y_var <- if (per_capita) paste0(conflict_var, "_per_100k") else conflict_var
+  y_var <- resolve_conflict_plot_var(conflict_var, per_capita = per_capita)
   if (!y_var %in% names(data)) {
     warning("Variable '", y_var, "' not found.")
     return(invisible(NULL))
@@ -182,11 +199,12 @@ plot_version_comparison <- function(comparison, country_name, save = TRUE) {
 # ---- 5. Generate all standard plots for a run -----------------------------
 
 generate_all_plots <- function(sepi_results, conflict_results,
-                                config     = INDICATOR_CONFIG,
+                                version,
                                 gis_config = GIS_CONFIG) {
   for (country in names(sepi_results)) {
+    country_config <- version$countries[[country]]
     plot_sepi_rankings(sepi_results[[country]], country)
-    plot_pillar_heatmap(sepi_results[[country]], country, config[[country]],
+    plot_pillar_heatmap(sepi_results[[country]], country, country_config,
                         conflict_data = conflict_results[[country]]$data)
     plot_sepi_vs_conflict(conflict_results[[country]], country)
 
@@ -195,7 +213,7 @@ generate_all_plots <- function(sepi_results, conflict_results,
                    conflict_data = conflict_results[[country]]$data,
                    gis_config    = gis_config)
       plot_pillar_maps(sepi_results[[country]], country,
-                       config[[country]],
+                       country_config,
                        conflict_data = conflict_results[[country]]$data,
                        gis_config    = gis_config)
     }
@@ -224,9 +242,9 @@ load_adm1_sf <- function(country_name, gis_config = GIS_CONFIG) {
 #
 # Produces a two-panel plot:
 #   Left  — SEPI score (0–1, RdYlGn, higher = better)
-#   Right — Conflict events per 100k (RdYlGn inverted, lower = better)
+#   Right — Conflict events per 1k (RdYlGn inverted, lower = better)
 #
-# conflict_data: data frame with adm1_pcode + count_conflict_events_per_100k.
+# conflict_data: data frame with adm1_pcode + count_conflicts_events_per_1k.
 #   When NULL only the SEPI panel is drawn (single map, backward-compatible).
 #
 # conflict_trans: "log1p" (default) applies log(x+1) before mapping to colour,
@@ -269,7 +287,7 @@ plot_sepi_map <- function(sepi_result, country_name,
     theme_map
 
   # --- Conflict panel (optional) ---
-  conflict_col <- "count_conflict_events_per_100k"
+  conflict_col <- "count_conflicts_events_per_1k"
 
   if (!is.null(conflict_data) && conflict_col %in% names(conflict_data)) {
     conf_df <- dplyr::left_join(
@@ -279,12 +297,12 @@ plot_sepi_map <- function(sepi_result, country_name,
       by = "adm1_pcode"
     )
 
-    legend_label    <- "Events\nper 100k"
-    conflict_subtitle <- "Conflict events per 100k population"
+    legend_label    <- "Events\nper 1k"
+    conflict_subtitle <- "Conflict events per 1k population"
 
     if (conflict_trans == "log1p") {
       conf_df        <- dplyr::mutate(conf_df, conflict = log1p(conflict))
-      legend_label   <- "Events per 100k\n(log scale)"
+      legend_label   <- "Events per 1k\n(log scale)"
       conflict_subtitle <- paste(conflict_subtitle, "[log\u2081\u208a\u2081 transformed]")
     }
 
@@ -338,7 +356,12 @@ plot_pillar_maps <- function(sepi_result, country_name, country_config,
                               gis_config     = GIS_CONFIG,
                               save           = TRUE) {
   label          <- country_label(country_name)
-  pillar_cols    <- paste0("pillar_", names(country_config$pillars))
+  # For v1/v2 use pillars definition; for v3 use pillar_* columns present in data
+  if (!is.null(country_config$pillars)) {
+    pillar_cols <- paste0("pillar_", names(country_config$pillars))
+  } else {
+    pillar_cols <- grep("^pillar_", names(sepi_result), value = TRUE)
+  }
   shp            <- load_adm1_sf(country_name, gis_config)
   conflict_trans <- match.arg(conflict_trans)
 
@@ -371,7 +394,7 @@ plot_pillar_maps <- function(sepi_result, country_name, country_config,
   })
 
   # --- Conflict panel ---
-  conflict_col <- "count_conflict_events_per_100k"
+  conflict_col <- "count_conflicts_events_per_1k"
   has_conflict <- !is.null(conflict_data) &&
                   conflict_col %in% names(conflict_data)
 
@@ -382,10 +405,10 @@ plot_pillar_maps <- function(sepi_result, country_name, country_config,
                     conflict = dplyr::all_of(conflict_col)),
       by = "adm1_pcode"
     )
-    legend_label <- "Events\nper 100k"
+    legend_label <- "Events\nper 1k"
     if (conflict_trans == "log1p") {
       conf_df      <- dplyr::mutate(conf_df, conflict = log1p(conflict))
-      legend_label <- "Events per 100k\n(log scale)"
+      legend_label <- "Events per 1k\n(log scale)"
     }
     p_conflict <- ggplot(conf_df) +
       geom_sf(aes(fill = conflict), colour = "white", linewidth = 0.3) +

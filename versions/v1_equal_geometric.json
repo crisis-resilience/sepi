@@ -1,0 +1,122 @@
+{
+  "name": "v1_equal_geometric",
+  "description": "Equal weights — arithmetic mean within pillars, geometric mean across pillars",
+  "methodology": {
+    "normalisation": "min_max",
+    "within_pillar_agg": "arithmetic",
+    "across_pillar_agg": "geometric",
+    "weighting": "equal",
+    "geometric_floor": 0.001,
+    "conflict_weighting": false
+  },
+  "countries": {
+    "kenya": {
+      "id_cols": ["adm1_pcode", "adm1_name"],
+      "population_col": "population_total",
+      "exclude_regions": [],
+      "pillars": {
+        "education": {
+          "indicators": ["primary_school_net_attendance_total", "net_attendance_total"],
+          "polarity": [1, 1],
+          "labels": ["Primary net attendance (%)", "Secondary net attendance (%)"]
+        },
+        "health": {
+          "indicators": ["health_fac_per_10k_pop", "hospitals_per_100k_pop"],
+          "polarity": [1, 1],
+          "labels": ["Health facilities per 10k pop", "Hospitals per 100k pop"]
+        },
+        "food_security": {
+          "indicators": ["nutrition"],
+          "polarity": [-1],
+          "labels": ["Nutrition deprivation (%, MPI)"]
+        },
+        "economic": {
+          "indicators": ["poverty_headcount_pct", "gcp_pc"],
+          "polarity": [-1, 1],
+          "labels": ["Poverty headcount (%)", "Gross county product per capita (KSh)"]
+        },
+        "climate": {
+          "indicators": ["rs_ndvi"],
+          "polarity": [1],
+          "labels": ["NDVI (remote sensing)"]
+        }
+      },
+      "conflict": {
+        "indicators": ["total_fatalities", "count_conflict_events", "total_fatalities_per_1k", "count_conflicts_events_per_1k"],
+        "labels": ["Total fatalities", "Total conflict events", "Fatalities per 1k pop", "Conflict events per 1k pop"]
+      }
+    },
+    "somalia": {
+      "id_cols": ["adm1_pcode", "adm1_name"],
+      "population_col": "population_total",
+      "exclude_regions": [],
+      "pillars": {
+        "education": {
+          "indicators": ["literacy_percent_total", "primary_school_net_attendance_total"],
+          "polarity": [1, 1],
+          "labels": ["Literacy rate (%)", "Primary net attendance (%)"]
+        },
+        "health": {
+          "indicators": ["health_fac_per_10k_pop", "hospitals_per_100k_pop"],
+          "polarity": [1, 1],
+          "labels": ["Health facilities per 10k pop", "Hospitals per 100k pop"]
+        },
+        "food_security": {
+          "indicators": ["pop_frac_3plus"],
+          "polarity": [-1],
+          "labels": ["Population in IPC Phase 3+ (proportion)"]
+        },
+        "economic": {
+          "indicators": ["poverty_headcount_pct", "total_expenditure_usd"],
+          "polarity": [-1, 1],
+          "labels": ["Poverty headcount (%)", "Household expenditure (USD)"]
+        },
+        "climate": {
+          "indicators": ["rs_ndvi"],
+          "polarity": [1],
+          "labels": ["NDVI (remote sensing)"]
+        }
+      },
+      "conflict": {
+        "indicators": ["total_fatalities", "count_conflict_events", "total_fatalities_per_1k", "count_conflicts_events_per_1k"],
+        "labels": ["Total fatalities", "Total conflict events", "Fatalities per 1k pop", "Conflict events per 1k pop"]
+      }
+    },
+    "south_sudan": {
+      "id_cols": ["adm1_pcode", "adm1_name"],
+      "population_col": "population_total",
+      "exclude_regions": ["SS00"],
+      "pillars": {
+        "education": {
+          "indicators": ["enrollment_rate", "dropout_pct"],
+          "polarity": [1, -1],
+          "labels": ["Enrollment rate (%, derived)", "Dropout rate (%)"]
+        },
+        "health": {
+          "indicators": ["health_fac_per_10k_pop", "hospitals_per_100k_pop"],
+          "polarity": [1, 1],
+          "labels": ["Health facilities per 10k pop", "Hospitals per 100k pop"]
+        },
+        "food_security": {
+          "indicators": ["pop_frac_3plus"],
+          "polarity": [-1],
+          "labels": ["Population in IPC Phase 3+ (proportion)"]
+        },
+        "economic": {
+          "indicators": ["poverty_headcount_pct", "daily_non_q_labour_mean_wage_USD"],
+          "polarity": [-1, 1],
+          "labels": ["Poverty headcount (%)", "Daily non-qual. wage (USD)"]
+        },
+        "climate": {
+          "indicators": ["rs_ndvi"],
+          "polarity": [1],
+          "labels": ["NDVI (remote sensing)"]
+        }
+      },
+      "conflict": {
+        "indicators": ["total_fatalities", "count_conflict_events", "total_fatalities_per_1k", "count_conflicts_events_per_1k"],
+        "labels": ["Total fatalities", "Total conflict events", "Fatalities per 1k pop", "Conflict events per 1k pop"]
+      }
+    }
+  }
+}

@@ -85,6 +85,11 @@ run_diagnostics <- function(data, country_config, country_name = NULL) {
   cat(" Diagnostics:", label, "\n")
   cat("========================================\n")
 
+  if (is.null(country_config$pillars)) {
+    cat("  (No pillars configured for this version — pillar diagnostics skipped)\n\n")
+    return(invisible(list(missingness = NULL, correlations = NULL, alphas = NULL)))
+  }
+
   # Missingness
   miss <- diagnose_missingness(data, country_config)
   cat("\n-- Missingness --\n")
@@ -116,8 +121,8 @@ run_diagnostics <- function(data, country_config, country_name = NULL) {
 
 # ---- Wrapper for all countries ---------------------------------------------
 
-run_all_diagnostics <- function(all_data, config = INDICATOR_CONFIG) {
+run_all_diagnostics <- function(all_data, version) {
   purrr::imap(all_data, function(data, country) {
-    run_diagnostics(data, config[[country]], country)
+    run_diagnostics(data, version$countries[[country]], country)
   })
 }

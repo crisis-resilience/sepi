@@ -3,15 +3,13 @@
 # ============================================================================
 # Reads from the pre-built merged CSV (GLOBAL_DATA$data_file) which contains
 # all countries in a single file, then splits by country and applies
-# per-country preprocessing defined in INDICATOR_CONFIG.
+# per-country preprocessing (exclude_regions) from the version config.
 # ============================================================================
 
 load_country_data <- function(country,
-                              global_data = GLOBAL_DATA,
-                              config = INDICATOR_CONFIG,
-                              .merged_df = NULL) {
-  country_config <- config[[country]]
-  if (is.null(country_config)) stop("Unknown country: ", country)
+                              global_data    = GLOBAL_DATA,
+                              country_config = NULL,
+                              .merged_df     = NULL) {
 
   if (is.null(.merged_df)) {
     .merged_df <- readr::read_csv(global_data$data_file, show_col_types = FALSE)
@@ -41,18 +39,27 @@ load_country_data <- function(country,
   }
 
   # Exclude regions with insufficient data (configured per country)
-  if (length(country_config$exclude_regions) > 0) {
+  if (!is.null(country_config) && length(country_config$exclude_regions) > 0) {
     data <- dplyr::filter(data, !adm1_pcode %in% country_config$exclude_regions)
   }
 
   data
 }
 
-load_all_data <- function(global_data = GLOBAL_DATA, config = INDICATOR_CONFIG) {
+load_all_data <- function(global_data = GLOBAL_DATA, version = NULL) {
   merged_df <- readr::read_csv(global_data$data_file, show_col_types = FALSE)
-  countries <- names(config)
+
+  countries <- if (!is.null(version)) {
+    names(version$countries)
+  } else {
+    unique(merged_df$country)
+  }
+
   purrr::map(
     rlang::set_names(countries),
-    ~ load_country_data(.x, global_data, config, .merged_df = merged_df)
+    function(country) {
+      country_config <- if (!is.null(version)) version$countries[[country]] else NULL
+      load_country_data(country, global_data, country_config, .merged_df = merged_df)
+    }
   )
 }

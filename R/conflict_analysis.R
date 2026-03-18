@@ -5,27 +5,6 @@
 # and ACLED conflict indicators.
 # ============================================================================
 
-# ---- Prepare conflict metrics ----------------------------------------------
-
-prepare_conflict <- function(data, country_config) {
-  conflict_cols <- country_config$conflict$indicators
-  conflict_cols <- conflict_cols[conflict_cols %in% names(data)]
-
-  pop <- data[[country_config$population_col]]
-
-  # Per-capita conflict rates (per 100k population)
-  for (col in conflict_cols) {
-    pc_col <- paste0(col, "_per_100k")
-    data[[pc_col]] <- ifelse(
-      !is.na(pop) & pop > 0,
-      data[[col]] / pop * 1e5,
-      NA_real_
-    )
-  }
-
-  data
-}
-
 # ---- Correlation analysis --------------------------------------------------
 
 sepi_conflict_correlation <- function(sepi_result, country_config) {
@@ -34,10 +13,8 @@ sepi_conflict_correlation <- function(sepi_result, country_config) {
 
   conflict_raw <- country_config$conflict$indicators
   conflict_raw <- conflict_raw[conflict_raw %in% names(sepi_result)]
-  conflict_pc  <- paste0(conflict_raw, "_per_100k")
-  conflict_pc  <- conflict_pc[conflict_pc %in% names(sepi_result)]
 
-  all_cols <- c(sepi_cols, conflict_raw, conflict_pc)
+  all_cols <- c(sepi_cols, conflict_raw)
   all_cols <- all_cols[all_cols %in% names(sepi_result)]
 
   mat <- sepi_result[, all_cols, drop = FALSE]
@@ -52,16 +29,13 @@ sepi_conflict_correlation <- function(sepi_result, country_config) {
 sepi_conflict_summary <- function(sepi_result, country_config) {
   conflict_raw <- country_config$conflict$indicators
   conflict_raw <- conflict_raw[conflict_raw %in% names(sepi_result)]
-  conflict_pc  <- paste0(conflict_raw, "_per_100k")
-  conflict_pc  <- conflict_pc[conflict_pc %in% names(sepi_result)]
-  conflict_all <- c(conflict_raw, conflict_pc)
 
   pillar_cols <- grep("^pillar_", names(sepi_result), value = TRUE)
   sepi_cols   <- c("sepi", pillar_cols)
 
   results <- tidyr::expand_grid(
     sepi_var     = sepi_cols,
-    conflict_var = conflict_all
+    conflict_var = conflict_raw
   )
 
   results$rho <- purrr::map2_dbl(
@@ -93,9 +67,6 @@ sepi_conflict_summary <- function(sepi_result, country_config) {
 analyse_conflict <- function(sepi_result, country_config, country_name = NULL) {
   label <- if (!is.null(country_name)) country_label(country_name) else "Country"
 
-  # Add per-capita conflict metrics
-  sepi_result <- prepare_conflict(sepi_result, country_config)
-
   # Correlation summary
   cor_summary <- sepi_conflict_summary(sepi_result, country_config)
 
@@ -117,8 +88,8 @@ analyse_conflict <- function(sepi_result, country_config, country_name = NULL) {
 
 # ---- Wrapper for all countries ---------------------------------------------
 
-analyse_conflict_all <- function(sepi_results, config = INDICATOR_CONFIG) {
+analyse_conflict_all <- function(sepi_results, version) {
   purrr::imap(sepi_results, function(result, country) {
-    analyse_conflict(result, config[[country]], country)
+    analyse_conflict(result, version$countries[[country]], country)
   })
 }

@@ -1,0 +1,155 @@
+{
+  "name": "v3_conflict_weighted",
+  "description": "Conflict-correlation weighted flat sum with country-specific indicator sets",
+  "methodology": {
+    "normalisation": "min_max",
+    "within_pillar_agg": "conflict_weighted",
+    "across_pillar_agg": "none",
+    "weighting": "conflict",
+    "geometric_floor": 0.001,
+    "conflict_weighting": true
+  },
+  "countries": {
+    "kenya": {
+      "id_cols": ["adm1_pcode", "adm1_name"],
+      "population_col": "population_total",
+      "conflict_col": "count_conflicts_events_per_1k",
+      "imputation": "mean",
+      "se_vars": [
+        "pop_frac_3plus", "net_attendance_total",
+        "health_fac_per_10k_pop", "healthcare_access_pop",
+        "gcp_pc",
+        "rs_soil_moist", "rs_fapar"
+      ],
+      "bad_vars": [
+        "poverty_headcount_pct", "pop_frac_3plus",
+        "child_mortality", "youth_bulge",
+        "nutrition", "cooking_fuel", "sanitation",
+        "drinking_water", "electricity", "housing",
+        "assets", "years_of_schooling"
+      ],
+      "pillar_map": {
+        "food_security": "pop_frac_3plus",
+        "education": "net_attendance_total",
+        "health": "health_fac_per_10k_pop",
+        "economic": "gcp_pc",
+        "climate": "rs_soil_moist"
+      },
+      "granular_vars": [
+        "pop_frac_3plus", "years_of_schooling",
+        "primary_school_net_attendance_gp_index",
+        "net_attendance_total",
+        "secondary_school_net_attendance_gp_index",
+        "health_fac_per_10k_pop", "hp_hc_per_10k_pop",
+        "hospitals_per_100k_pop",
+        "healthcare_access_pop", "school_access_pop",
+        "nutrition", "child_mortality", "cooking_fuel",
+        "sanitation", "drinking_water", "electricity",
+        "housing", "assets",
+        "poverty_headcount_pct", "gcp_pc",
+        "rs_soil_moist", "rs_fapar", "rs_pdsi", "rs_ndvi",
+        "youth_bulge"
+      ],
+      "conflict": {
+        "indicators": ["total_fatalities", "count_conflict_events", "total_fatalities_per_1k", "count_conflicts_events_per_1k"],
+        "labels": ["Total fatalities", "Total conflict events", "Fatalities per 1k pop", "Conflict events per 1k pop"]
+      }
+    },
+    "somalia": {
+      "id_cols": ["adm1_pcode", "adm1_name"],
+      "population_col": "population_total",
+      "conflict_col": "count_conflicts_events_per_1k",
+      "imputation": "mean",
+      "se_vars": [
+        "pop_frac_3plus", "percent_no_formal_education",
+        "hospitals_per_100k_pop", "poverty_headcount_pct",
+        "healthcare_access_pop", "rs_ndvi"
+      ],
+      "bad_vars": [
+        "poverty_headcount_pct", "extreme_poverty_headcount_pct",
+        "food_percentage_share_pct",
+        "percent_no_formal_education",
+        "percent_highest_level_primary_education",
+        "youth_bulge", "pop_frac_3plus",
+        "youth_unemployment", "school_attendance",
+        "years_of_schooling", "food_security",
+        "access_to_healthcare", "housing", "overcrowding",
+        "assets", "cooking_fuel", "sanitation",
+        "water", "electricity", "unemployment",
+        "shocks", "nutrition"
+      ],
+      "pillar_map": {
+        "food_security": "pop_frac_3plus",
+        "education": "percent_no_formal_education",
+        "health": "hospitals_per_100k_pop",
+        "economic": "poverty_headcount_pct",
+        "climate": "rs_ndvi"
+      },
+      "granular_vars": [
+        "pop_frac_3plus",
+        "literacy_percent_total", "percent_no_formal_education",
+        "percent_highest_level_secondary_education",
+        "percent_highest_level_primary_education",
+        "percent_highest_level_university_education",
+        "primary_school_net_attendance_gp_index",
+        "secondary_school_net_attendance_gp_index",
+        "health_fac_per_10k_pop", "mch_ctr_per_10k_pop",
+        "hp_hc_per_10k_pop", "hospitals_per_100k_pop",
+        "school_access_pop", "healthcare_access_pop",
+        "school_attendance", "years_of_schooling",
+        "food_security", "nutrition",
+        "access_to_healthcare", "housing", "cooking_fuel",
+        "overcrowding", "sanitation", "water",
+        "electricity", "assets", "unemployment", "shocks",
+        "total_expenditure_usd", "food_percentage_share_pct",
+        "poverty_headcount_pct", "extreme_poverty_headcount_pct",
+        "youth_unemployment", "youth_bulge",
+        "rs_fapar", "rs_pdsi", "rs_soil_moist", "rs_ndvi"
+      ],
+      "conflict": {
+        "indicators": ["total_fatalities", "count_conflict_events", "total_fatalities_per_1k", "count_conflicts_events_per_1k"],
+        "labels": ["Total fatalities", "Total conflict events", "Fatalities per 1k pop", "Conflict events per 1k pop"]
+      }
+    },
+    "south_sudan": {
+      "id_cols": ["adm1_pcode", "adm1_name"],
+      "population_col": "population_total",
+      "conflict_col": "count_conflicts_events_per_1k",
+      "imputation": "omit",
+      "se_vars": [
+        "pop_frac_3plus", "gender_parity_index",
+        "poverty_headcount_pct", "annual_cmb_mean",
+        "healthcare_access_pop",
+        "rs_soil_moist", "rs_ndvi"
+      ],
+      "bad_vars": [
+        "poverty_headcount_pct", "pop_frac_3plus",
+        "dropout_pct", "pqtr_pct",
+        "annual_cmb_mean", "youth_bulge"
+      ],
+      "protected_vars": ["gender_parity_index"],
+      "pillar_map": {
+        "food_security": "pop_frac_3plus",
+        "education": "gender_parity_index",
+        "health": "healthcare_access_pop",
+        "economic": "poverty_headcount_pct",
+        "climate": "rs_soil_moist"
+      },
+      "granular_vars": [
+        "poverty_headcount_pct", "annual_cmb_mean", "non_agri_wage",
+        "rs_pdsi", "rs_ndvi", "rs_soil_moist", "rs_fapar",
+        "health_fac_per_10k_pop", "hp_hc_per_10k_pop",
+        "hospitals_per_100k_pop",
+        "percent_enrollment_male", "percent_enrollment_female",
+        "gender_parity_index", "dropout_pct", "pqtr_pct",
+        "on_payroll_pct",
+        "pop_frac_3plus", "youth_bulge",
+        "healthcare_access_pop", "school_access_pop"
+      ],
+      "conflict": {
+        "indicators": ["total_fatalities", "count_conflict_events", "total_fatalities_per_1k", "count_conflicts_events_per_1k"],
+        "labels": ["Total fatalities", "Total conflict events", "Fatalities per 1k pop", "Conflict events per 1k pop"]
+      }
+    }
+  }
+}

@@ -328,11 +328,162 @@ screen_indicators <- function(data, country_config, country_name = NULL) {
 #' Run indicator screening for all countries
 #'
 #' @param all_data Named list of country data frames (from load_all_data())
-#' @param config   INDICATOR_CONFIG (defaults to global)
+#' @param version  sepi_version object (from VERSIONS)
 #'
 #' @return Named list of per-country screening result data frames
-screen_all_countries <- function(all_data, config = INDICATOR_CONFIG) {
+screen_all_countries <- function(all_data, version) {
   purrr::imap(all_data, function(data, country) {
-    screen_indicators(data, config[[country]], country)
+    screen_indicators(data, version$countries[[country]], country)
+  })
+}
+
+# ============================================================================
+# V3 Indicator Selection
+# ============================================================================
+# Run once before finalising V3_INDICATOR_CONFIG$se_vars.
+# For each country: impute → normalise → multicollinearity filter → compute
+# Pearson r with conflict → return summary table.
+# ============================================================================
+
+#' Select v3 indicators via multicollinearity + conflict-correlation analysis
+#'
+#' @param all_data  Named list of country data frames
+#' @param version   sepi_version object (v3_conflict_weighted or similar)
+#' @param cutoff    Multicollinearity |r| cutoff (default 0.8)
+#'
+#' @return Named list of per-country data frames with columns:
+#'   indicator, corr_with_conflict, weight_magnitude, keep
+select_v3_indicators <- function(all_data, version, cutoff = 0.8) {
+
+  if (!requireNamespace("caret", quietly = TRUE)) {
+    stop("Package 'caret' is required for multicollinearity detection. ",
+         "Install with: install.packages('caret')")
+  }
+
+  cat("\n========================================\n")
+  cat(" V3 Indicator Selection\n")
+  cat(" Multicollinearity cutoff:", cutoff, "\n")
+  cat("========================================\n")
+
+  purrr::imap(all_data, function(data, country) {
+    cfg <- version$countries[[country]]
+    if (is.null(cfg)) {
+      cat("\n-- Skipping", country, "(not in version$countries) --\n")
+      return(NULL)
+    }
+
+    cat("\n--", country_label(country), "--\n")
+
+    se_vars     <- cfg$se_vars
+    conflict_col <- cfg$conflict_col
+
+    # Check which se_vars exist in data
+    available <- se_vars[se_vars %in% names(data)]
+    if (length(available) == 0) {
+      cat("  No se_vars found in data — skipping.\n")
+      return(NULL)
+    }
+    missing_vars <- setdiff(se_vars, available)
+    if (length(missing_vars) > 0) {
+      cat("  Warning: missing from data:", paste(missing_vars, collapse = ", "), "\n")
+    }
+
+    # Impute
+    work <- data
+    if (cfg$imputation == "mean") {
+      if ("pop_frac_3plus" %in% available) {
+        work[["pop_frac_3plus"]][is.na(work[["pop_frac_3plus"]])] <- 0
+      }
+      for (v in available) {
+        if (any(is.na(work[[v]]))) {
+          work[[v]][is.na(work[[v]])] <- mean(work[[v]], na.rm = TRUE)
+        }
+      }
+    } else {
+      # "omit" — restrict to complete rows across se_vars + conflict
+      cols_needed <- c(available, conflict_col)
+      cols_needed <- cols_needed[cols_needed %in% names(work)]
+      work <- work[stats::complete.cases(work[, cols_needed, drop = FALSE]), ]
+    }
+
+    cat("  Rows after imputation:", nrow(work), "\n")
+
+    # Min-max normalise candidates
+    for (v in available) {
+      work[[v]] <- normalise_min_max(work[[v]])
+    }
+
+    # Multicollinearity detection
+    protected <- cfg$protected_vars %||% character(0)
+    cor_mat   <- stats::cor(work[, available, drop = FALSE], use = "complete.obs")
+
+    if (length(protected) > 0 && any(protected %in% available)) {
+      # SSD-style: manual loop honouring protected vars
+      vars_to_drop <- character(0)
+      for (i in seq_len(ncol(cor_mat) - 1)) {
+        for (j in (i + 1):ncol(cor_mat)) {
+          if (abs(cor_mat[i, j]) > cutoff) {
+            v1 <- colnames(cor_mat)[i]
+            v2 <- colnames(cor_mat)[j]
+            if (v1 %in% protected && !(v2 %in% protected)) {
+              vars_to_drop <- c(vars_to_drop, v2)
+            } else if (v2 %in% protected && !(v1 %in% protected)) {
+              vars_to_drop <- c(vars_to_drop, v1)
+            } else {
+              vars_to_drop <- c(vars_to_drop, v2)
+            }
+          }
+        }
+      }
+      vars_to_drop <- unique(vars_to_drop)
+    } else {
+      drop_idx <- caret::findCorrelation(cor_mat, cutoff = cutoff)
+      vars_to_drop <- if (length(drop_idx) > 0) colnames(cor_mat)[drop_idx] else character(0)
+    }
+
+    if (length(vars_to_drop) > 0) {
+      cat("  Dropping (multicollinearity):", paste(vars_to_drop, collapse = ", "), "\n")
+    }
+
+    kept <- setdiff(available, vars_to_drop)
+    cat("  Retained:", paste(kept, collapse = ", "), "\n")
+
+    # Pearson r with conflict
+    conflict_vals <- work[[conflict_col]]
+    if (is.null(conflict_vals) || all(is.na(conflict_vals))) {
+      cat("  Warning: conflict column not available — weights will be NA.\n")
+      return(data.frame(
+        indicator          = available,
+        corr_with_conflict = NA_real_,
+        weight_magnitude   = NA_real_,
+        keep               = available %in% kept,
+        stringsAsFactors   = FALSE
+      ))
+    }
+
+    cors <- vapply(available, function(v) {
+      xv <- work[[v]]
+      if (stats::sd(xv, na.rm = TRUE) == 0) return(NA_real_)
+      stats::cor(xv, conflict_vals, method = "pearson", use = "complete.obs")
+    }, numeric(1))
+
+    abs_cors <- abs(cors)
+    kept_abs  <- abs_cors[kept]
+    denom     <- sum(kept_abs, na.rm = TRUE)
+    wt_mag    <- if (denom > 0) kept_abs / denom else rep(1 / length(kept), length(kept))
+
+    result <- data.frame(
+      indicator          = available,
+      corr_with_conflict = round(cors, 4),
+      weight_magnitude   = NA_real_,
+      keep               = available %in% kept,
+      stringsAsFactors   = FALSE
+    )
+    result$weight_magnitude[match(names(wt_mag), result$indicator)] <- round(wt_mag, 4)
+
+    cat("  Indicator selection summary:\n")
+    print(result, row.names = FALSE)
+
+    result
   })
 }

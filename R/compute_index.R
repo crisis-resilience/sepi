@@ -70,21 +70,198 @@ compute_pca_weights <- function(norm_mat) {
   weights_full
 }
 
+# ---- V3 helpers: imputation and conflict weights ----------------------------
+
+#' Impute missing values for v3 conflict-weighted computation
+#'
+#' @param data      Data frame
+#' @param se_vars   Character vector of SE indicator column names
+#' @param strategy  "mean" (pop_frac_3plus→0, others→column mean) or "omit" (na.omit)
+#' @return Data frame with imputed values (or reduced rows if strategy="omit")
+impute_missing_v3 <- function(data, se_vars, strategy = "mean") {
+  if (strategy == "mean") {
+    if ("pop_frac_3plus" %in% se_vars && "pop_frac_3plus" %in% names(data)) {
+      data[["pop_frac_3plus"]][is.na(data[["pop_frac_3plus"]])] <- 0
+    }
+    for (v in se_vars) {
+      if (v %in% names(data) && any(is.na(data[[v]]))) {
+        data[[v]][is.na(data[[v]])] <- mean(data[[v]], na.rm = TRUE)
+      }
+    }
+  } else {
+    # "omit" — drop rows with any NA in se_vars
+    avail <- se_vars[se_vars %in% names(data)]
+    data <- data[stats::complete.cases(data[, avail, drop = FALSE]), ]
+  }
+  data
+}
+
+#' Compute signed conflict-correlation weights for v3
+#'
+#' @param data         Data frame (already imputed)
+#' @param se_vars      Character vector of SE indicator column names (normalised)
+#' @param conflict_col Name of the conflict column
+#' @param bad_vars     Character vector of indicators where higher = worse
+#' @return Named numeric vector of effective weights (sign × magnitude)
+compute_conflict_weights <- function(data, se_vars, conflict_col, bad_vars) {
+  conflict_vals <- data[[conflict_col]]
+
+  cors <- vapply(se_vars, function(v) {
+    xv <- data[[v]]
+    if (stats::sd(xv, na.rm = TRUE) == 0 ||
+        stats::sd(conflict_vals, na.rm = TRUE) == 0 ||
+        sum(!is.na(xv) & !is.na(conflict_vals)) < 3) {
+      return(NA_real_)
+    }
+    stats::cor(xv, conflict_vals, method = "pearson", use = "complete.obs")
+  }, numeric(1))
+
+  abs_cors <- abs(cors)
+  total    <- sum(abs_cors, na.rm = TRUE)
+
+  if (total == 0 || all(is.na(abs_cors))) {
+    weight_mag <- stats::setNames(rep(1 / length(se_vars), length(se_vars)), se_vars)
+  } else {
+    weight_mag <- abs_cors / total
+    weight_mag[is.na(weight_mag)] <- 0
+    if (sum(weight_mag) > 0 && abs(sum(weight_mag) - 1) > 1e-6) {
+      weight_mag <- weight_mag / sum(weight_mag)
+    }
+  }
+
+  signs <- ifelse(se_vars %in% bad_vars, -1, 1)
+  effective <- signs * weight_mag
+  names(effective) <- se_vars
+  effective
+}
+
 # ---- Main index function ----------------------------------------------------
 
-compute_sepi <- function(data, country_config, version) {
+compute_sepi <- function(data, version, country_name = NULL, country_config = NULL) {
+
+  # Resolve country config: explicit override wins, otherwise look up from version
+  cfg_resolved <- if (!is.null(country_config)) {
+    country_config
+  } else if (!is.null(country_name)) {
+    version$countries[[country_name]]
+  } else {
+    stop("compute_sepi() requires either 'country_name' or 'country_config'.")
+  }
+
+  # ---- V3 conflict-weighted path --------------------------------------------
+  if (isTRUE(version$conflict_weighting)) {
+    cfg <- cfg_resolved
+    if (is.null(cfg$se_vars) || is.null(cfg$conflict_col)) {
+      stop("V3 conflict_weighting is TRUE but country config is missing ",
+           "se_vars or conflict_col. Check versions/v3_conflict_weighted.json.")
+    }
+
+    se_vars      <- cfg$se_vars
+    conflict_col <- cfg$conflict_col
+    bad_vars     <- cfg$bad_vars
+    pillar_map   <- cfg$pillar_map
+    granular_vars <- cfg$granular_vars
+
+    # 1. Impute
+    data <- impute_missing_v3(data, c(se_vars, conflict_col), cfg$imputation)
+
+    # 2. Min-max normalise SE vars (preserving original direction, no polarity flip)
+    for (v in se_vars) {
+      if (v %in% names(data)) {
+        data[[paste0(v, "_norm")]] <- normalise_min_max(data[[v]])
+      }
+    }
+
+    # 3. Compute conflict weights on normalised columns
+    norm_cols <- paste0(se_vars, "_norm")
+    norm_cols <- norm_cols[norm_cols %in% names(data)]
+
+    # Build a temporary df with norm col names = se_var names for weight computation
+    norm_data_for_weights <- data[, norm_cols, drop = FALSE]
+    names(norm_data_for_weights) <- sub("_norm$", "", norm_cols)
+
+    eff_weights <- compute_conflict_weights(
+      cbind(norm_data_for_weights, data[, conflict_col, drop = FALSE]),
+      se_vars[paste0(se_vars, "_norm") %in% names(data)],
+      conflict_col,
+      bad_vars
+    )
+
+    # 4. Compute sepi_raw = sum(norm_i * effective_weight_i)
+    weight_cols <- paste0(names(eff_weights), "_norm")
+    weight_cols <- weight_cols[weight_cols %in% names(data)]
+    if (length(weight_cols) == 0) {
+      stop("No normalised SE indicator columns found for v3 computation.")
+    }
+    norm_mat <- as.matrix(data[, weight_cols, drop = FALSE])
+    # Match weight vector to the columns actually present
+    matched_weights <- eff_weights[sub("_norm$", "", weight_cols)]
+    data$sepi_raw <- as.numeric(norm_mat %*% matched_weights)
+
+    # 5. Rescale to 0-1
+    data$sepi <- as.numeric(normalise_min_max(data$sepi_raw))
+
+    # 6. Rank (1 = best socio-economic conditions = highest SEPI)
+    data$sepi_rank <- rank(-data$sepi, na.last = "last", ties.method = "min")
+
+    # 7. Pillar columns from pillar_map (normalised representative indicator)
+    pillar_names <- character(0)
+    if (!is.null(pillar_map)) {
+      for (p_name in names(pillar_map)) {
+        rep_var  <- pillar_map[[p_name]]
+        norm_col <- paste0(rep_var, "_norm")
+        if (norm_col %in% names(data)) {
+          data[[paste0("pillar_", p_name)]] <- data[[norm_col]]
+        } else {
+          data[[paste0("pillar_", p_name)]] <- NA_real_
+        }
+        pillar_names <- c(pillar_names, p_name)
+      }
+    }
+
+    # Track pillar completeness
+    if (length(pillar_names) > 0) {
+      pillar_cols <- paste0("pillar_", pillar_names)
+      data$n_pillars <- apply(
+        data[, pillar_cols, drop = FALSE], 1,
+        function(row) sum(!is.na(row))
+      )
+    } else {
+      data$n_pillars <- NA_integer_
+    }
+
+    # 8. Normalise all granular_vars for Indicator_Scores export
+    if (!is.null(granular_vars)) {
+      for (v in granular_vars) {
+        norm_col <- paste0(v, "_norm")
+        if (v %in% names(data) && !norm_col %in% names(data)) {
+          data[[norm_col]] <- normalise_min_max(data[[v]])
+        }
+      }
+    }
+
+    # Store effective weights as an attribute for export
+    attr(data, "v3_effective_weights") <- eff_weights
+    attr(data, "sepi_version") <- version$name
+
+    return(data)
+  }
+
+  # ---- V1/V2 standard path --------------------------------------------------
+
+  cfg <- cfg_resolved
 
   # 1. Normalise all indicators
-  data <- normalise_country(data, country_config, version$normalisation)
+  data <- normalise_country(data, cfg, version$normalisation)
 
-  pillar_names <- names(country_config$pillars)
+  pillar_names <- names(cfg$pillars)
   n_pillars    <- length(pillar_names)
 
   # 2. Resolve pillar weights
   if (version$weighting == "equal") {
     pillar_weights <- rep(1 / n_pillars, n_pillars)
     names(pillar_weights) <- pillar_names
-  } else {
+  } else if (version$weighting == "custom") {
     pillar_weights <- version$pillar_weights[pillar_names]
     if (any(is.na(pillar_weights))) {
       missing <- pillar_names[is.na(pillar_weights)]
@@ -94,7 +271,7 @@ compute_sepi <- function(data, country_config, version) {
 
   # 3. Compute pillar scores (within-pillar aggregation, row by row)
   for (p_name in pillar_names) {
-    pillar    <- country_config$pillars[[p_name]]
+    pillar    <- cfg$pillars[[p_name]]
     norm_cols <- paste0(pillar$indicators, "_norm")
     norm_cols <- norm_cols[norm_cols %in% names(data)]
 
@@ -142,7 +319,7 @@ compute_sepi <- function(data, country_config, version) {
       aggregate_scores(row,
                        w      = pillar_weights,
                        method = version$across_pillar_agg,
-                       floor  = version$geometric_floor)
+                       floor  = version$geometric_floor %||% 0.001)
     }
   )
 
@@ -163,10 +340,10 @@ compute_sepi <- function(data, country_config, version) {
 
 # ---- Convenience wrapper for all countries ---------------------------------
 
-compute_all_countries <- function(all_data, version, config = INDICATOR_CONFIG) {
+compute_all_countries <- function(all_data, version) {
   countries <- names(all_data)
   purrr::map(rlang::set_names(countries), function(country) {
-    compute_sepi(all_data[[country]], config[[country]], version)
+    compute_sepi(all_data[[country]], version, country_name = country)
   })
 }
 
@@ -197,7 +374,7 @@ compute_all_countries <- function(all_data, version, config = INDICATOR_CONFIG) 
 indicator_sensitivity <- function(data, country_config, version) {
 
   # Full-model SEPI rankings
-  full_result  <- compute_sepi(data, country_config, version)
+  full_result  <- compute_sepi(data, version, country_config = country_config)
   full_ranks   <- full_result$sepi_rank
   id_col       <- country_config$id_cols[1]
   full_ids     <- full_result[[id_col]]
@@ -222,7 +399,7 @@ indicator_sensitivity <- function(data, country_config, version) {
 
       # Compute reduced SEPI (suppress warnings for empty pillars)
       reduced_result <- tryCatch(
-        suppressWarnings(compute_sepi(data, reduced_config, version)),
+        suppressWarnings(compute_sepi(data, version, country_config = reduced_config)),
         error = function(e) NULL
       )
 
@@ -296,11 +473,9 @@ indicator_sensitivity <- function(data, country_config, version) {
 #'
 #' @param all_data Named list of country data frames
 #' @param version  sepi_version object
-#' @param config   INDICATOR_CONFIG (defaults to global)
 #'
 #' @return Named list of per-country sensitivity data frames
-sensitivity_all_countries <- function(all_data, version,
-                                      config = INDICATOR_CONFIG) {
+sensitivity_all_countries <- function(all_data, version) {
   cat("\n========================================\n")
   cat(" Indicator Sensitivity Analysis\n")
   cat(" Version:", version$name, "\n")
@@ -308,7 +483,7 @@ sensitivity_all_countries <- function(all_data, version,
 
   purrr::imap(all_data, function(data, country) {
     cat("\n--", country_label(country), "--\n")
-    result <- indicator_sensitivity(data, config[[country]], version)
+    result <- indicator_sensitivity(data, version$countries[[country]], version)
 
     # Print summary table
     print_cols <- c("pillar", "indicator", "spearman_rho",
