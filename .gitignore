@@ -18,23 +18,14 @@ CLAUDE.md
 
 # Data files — not tracked (too large / binary / not source code)
 # versions/*.json are source code and ARE tracked
-**/*.csv
-**/*.xlsx
-**/*.xls
-**/*.zip
+# data/ subdirectory contents (gis, remote_sensing, socio-economic) ARE tracked
+data/*.csv
+data/*.json
 **/*.rds
 **/*.html
 **/*.pdf
-**/*.shp
-**/*.dbf
-**/*.shx
-**/*.prj
-**/*.cpg
-**/*.sbn
-**/*.sbx
 
-# Data, output, and doc directories — track folder structure only via .gitkeep
-data/*
+# Output and doc directories — track folder structure only via .gitkeep
 docs/*
 outputs/*
 data_dictionnaries/*
