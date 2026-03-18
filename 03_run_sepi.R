@@ -32,15 +32,3 @@ generate_all_plots(sepi_results, conflict_results, version)
 export_sepi_excel(sepi_results, version)
 
 cat("\nDone. Output: outputs/sepi_results_", version$name, ".xlsx\n", sep = "")
-
-# ── [OPTIONAL] Sensitivity analysis ──────────────────────────────────────────
-# sensitivity_results <- sensitivity_all_countries(all_data, version)
-
-# ── [OPTIONAL] Version comparison ─────────────────────────────────────────────
-# results_v1 <- compute_all_countries(all_data, VERSIONS$v1_equal_geometric)
-# comparison <- compare_versions(list(v1_equal = results_v1,
-#                                     v3_conflict_wt = sepi_results))
-# for (country in names(comparison)) {
-#   cat("\n", country_label(country), "— Rank correlation v1 vs v3:\n")
-#   print(round(comparison[[country]]$rank_correlation, 3))
-# }
