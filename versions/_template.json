@@ -1,0 +1,55 @@
+{
+  "_comment": "SEPI Version Template — Copy this file, rename it, and fill in the values below.",
+  "_comment_naming": "File name should match the 'name' field, e.g. v4_my_method.json",
+  "_comment_structure": "Two structures are supported: pillar-based (v1/v2 style) and conflict-weighted flat (v3 style). Delete the section you do not need from each country block.",
+
+  "name": "vN_SHORT_NAME",
+  "description": "Brief description of the methodology",
+
+  "methodology": {
+    "normalisation": "min_max | z_score | rank",
+    "within_pillar_agg": "arithmetic | pca | conflict_weighted",
+    "across_pillar_agg": "geometric | none",
+    "weighting": "equal | custom | conflict",
+    "geometric_floor": 0.001,
+    "conflict_weighting": false
+  },
+
+  "countries": {
+
+    "_comment_countries": "Add one block per country. Each country can use EITHER the pillar-based structure OR the conflict-weighted flat structure — not both.",
+
+    "COUNTRY_KEY": {
+      "id_cols": ["adm1_pcode", "adm1_name"],
+      "population_col": "population_total",
+
+      "_comment_pillar": "--- PILLAR-BASED structure (used with arithmetic / pca aggregation) ---",
+      "exclude_regions": [],
+      "pillars": {
+        "PILLAR_NAME": {
+          "indicators": ["indicator_col_1", "indicator_col_2"],
+          "polarity": [1, -1],
+          "labels": ["Human-readable label 1", "Human-readable label 2"]
+        }
+      },
+
+      "_comment_flat": "--- CONFLICT-WEIGHTED FLAT structure (used with conflict_weighted aggregation) ---",
+      "conflict_col": "count_conflicts_events_per_1k",
+      "imputation": "mean | omit",
+      "se_vars": ["indicator_col_1", "indicator_col_2"],
+      "bad_vars": ["indicator_col_with_negative_polarity_1"],
+      "protected_vars": ["indicator_that_must_not_be_dropped"],
+      "pillar_map": {
+        "PILLAR_NAME": "representative_indicator_col"
+      },
+      "granular_vars": ["all_candidate_indicator_cols"],
+
+      "_comment_conflict": "--- Conflict indicators (required for both structures) ---",
+      "conflict": {
+        "indicators": ["total_fatalities", "count_conflict_events", "total_fatalities_per_1k", "count_conflicts_events_per_1k"],
+        "labels": ["Total fatalities", "Total conflict events", "Fatalities per 1k pop", "Conflict events per 1k pop"]
+      }
+    }
+
+  }
+}
