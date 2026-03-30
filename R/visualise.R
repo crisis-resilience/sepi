@@ -10,8 +10,8 @@ resolve_conflict_plot_var <- function(conflict_var, per_capita = TRUE) {
   if (!per_capita) return(conflict_var)
 
   rate_lookup <- c(
-    count_conflict_events = "count_conflicts_events_per_1k",
-    total_fatalities = "total_fatalities_per_1k"
+    count_conflict_events_2025 = "count_conflicts_events_per_1k_2025",
+    total_fatalities_2025 = "total_fatalities_per_1k_2025"
   )
 
   resolved <- unname(rate_lookup[conflict_var])
@@ -74,7 +74,7 @@ plot_pillar_heatmap <- function(sepi_result, country_name,
                           levels = sepi_result$adm1_name[order(sepi_result$sepi)])
     )
 
-  conflict_col <- "count_conflicts_events_per_1k"
+  conflict_col <- "count_conflicts_events_per_1k_2025"
   if (!is.null(conflict_data) && conflict_col %in% names(conflict_data)) {
     raw <- conflict_data[[conflict_col]]
     rng <- range(raw, na.rm = TRUE)
@@ -114,7 +114,7 @@ plot_pillar_heatmap <- function(sepi_result, country_name,
 # ---- 3. SEPI vs Conflict scatter ------------------------------------------
 
 plot_sepi_vs_conflict <- function(conflict_result, country_name,
-                                   conflict_var = "count_conflict_events",
+                                   conflict_var = "count_conflict_events_2025",
                                    per_capita = TRUE, save = TRUE) {
   label <- country_label(country_name)
   data  <- conflict_result$data
@@ -287,7 +287,7 @@ plot_sepi_map <- function(sepi_result, country_name,
     theme_map
 
   # --- Conflict panel (optional) ---
-  conflict_col <- "count_conflicts_events_per_1k"
+  conflict_col <- "count_conflicts_events_per_1k_2025"
 
   if (!is.null(conflict_data) && conflict_col %in% names(conflict_data)) {
     conf_df <- dplyr::left_join(
@@ -298,7 +298,7 @@ plot_sepi_map <- function(sepi_result, country_name,
     )
 
     legend_label    <- "Events\nper 1k"
-    conflict_subtitle <- "Conflict events per 1k population"
+    conflict_subtitle <- "Conflict events per 1k population (2025)"
 
     if (conflict_trans == "log1p") {
       conf_df        <- dplyr::mutate(conf_df, conflict = log1p(conflict))
@@ -394,7 +394,7 @@ plot_pillar_maps <- function(sepi_result, country_name, country_config,
   })
 
   # --- Conflict panel ---
-  conflict_col <- "count_conflicts_events_per_1k"
+  conflict_col <- "count_conflicts_events_per_1k_2025"
   has_conflict <- !is.null(conflict_data) &&
                   conflict_col %in% names(conflict_data)
 
