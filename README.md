@@ -20,6 +20,28 @@ Run this when source CSVs, ACLED data, or remote sensing inputs have been update
 
 You do not need to re-run this unless the underlying data changes.
 
+#### ACLED credentials
+
+ACLED data is fetched live from the API at runtime (2016–2025, all three countries). A `.env` file in the project root is required:
+
+```
+ACLED_EMAIL=your_email@example.com
+ACLED_PASSWORD=your_acled_api_key
+```
+
+#### ACLED column naming
+
+Conflict columns are produced with a yearly suffix for each year in the configured date range. For example:
+
+| Column | Description |
+|--------|-------------|
+| `total_fatalities_2025` | Total ACLED fatalities in 2025 per Admin-1 |
+| `count_conflict_events_2025` | Total conflict events in 2025 per Admin-1 |
+| `total_fatalities_per_1k_2025` | Fatalities per 1,000 population (2025) |
+| `count_conflicts_events_per_1k_2025` | Conflict events per 1,000 population (2025) |
+
+The same pattern repeats for every year from 2016 to 2025. Version JSON files and visualisations reference the `_2025` columns by default.
+
 ---
 
 ### `02_explore.R` — Indicator exploration and screening
@@ -127,4 +149,4 @@ Per country: `rankings_<country>.png`, `pillars_<country>.png`, `sepi_conflict_<
 
 ## Dependencies
 
-`tidyverse`, `readr`, `psych`, `ggrepel`, `openxlsx`, `purrr`, `rlang`
+`tidyverse`, `readr`, `psych`, `ggrepel`, `openxlsx`, `purrr`, `rlang`, `jsonlite`, `sf`, `patchwork`, `httr2`

@@ -148,7 +148,7 @@ MERGE_BUILD_CONFIG <- list(
   ),
   keys = c("country", "country_code", "adm1_pcode", "adm1_na"),
   conflict = list(
-    start_date    = "2025-01-01",
+    start_date    = "2016-01-01",
     end_date      = "2025-12-31",
     api_limit     = 5000,
     api_max_pages = 100,

@@ -42,8 +42,8 @@
         }
       },
       "conflict": {
-        "indicators": ["total_fatalities", "count_conflict_events", "total_fatalities_per_1k", "count_conflicts_events_per_1k"],
-        "labels": ["Total fatalities", "Total conflict events", "Fatalities per 1k pop", "Conflict events per 1k pop"]
+        "indicators": ["total_fatalities_2025", "count_conflict_events_2025", "total_fatalities_per_1k_2025", "count_conflicts_events_per_1k_2025"],
+        "labels": ["Total fatalities (2025)", "Total conflict events (2025)", "Fatalities per 1k pop (2025)", "Conflict events per 1k pop (2025)"]
       }
     },
     "somalia": {
@@ -78,8 +78,8 @@
         }
       },
       "conflict": {
-        "indicators": ["total_fatalities", "count_conflict_events", "total_fatalities_per_1k", "count_conflicts_events_per_1k"],
-        "labels": ["Total fatalities", "Total conflict events", "Fatalities per 1k pop", "Conflict events per 1k pop"]
+        "indicators": ["total_fatalities_2025", "count_conflict_events_2025", "total_fatalities_per_1k_2025", "count_conflicts_events_per_1k_2025"],
+        "labels": ["Total fatalities (2025)", "Total conflict events (2025)", "Fatalities per 1k pop (2025)", "Conflict events per 1k pop (2025)"]
       }
     },
     "south_sudan": {
@@ -114,8 +114,8 @@
         }
       },
       "conflict": {
-        "indicators": ["total_fatalities", "count_conflict_events", "total_fatalities_per_1k", "count_conflicts_events_per_1k"],
-        "labels": ["Total fatalities", "Total conflict events", "Fatalities per 1k pop", "Conflict events per 1k pop"]
+        "indicators": ["total_fatalities_2025", "count_conflict_events_2025", "total_fatalities_per_1k_2025", "count_conflicts_events_per_1k_2025"],
+        "labels": ["Total fatalities (2025)", "Total conflict events (2025)", "Fatalities per 1k pop (2025)", "Conflict events per 1k pop (2025)"]
       }
     }
   }
