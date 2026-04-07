@@ -23,7 +23,7 @@ source("R/normalise.R")
 source("R/compute_index.R")
 
 # ── Configure + Load ──────────────────────────────────────────────────────────
-version      <- VERSIONS$v3_conflict_weighted   # ← version under evaluation
+version      <- VERSIONS$v3_zscore   # ← change to switch version under evaluation
 all_data     <- load_all_data(version = version)
 sepi_results <- compute_all_countries(all_data, version)
 
@@ -32,16 +32,17 @@ sepi_results <- compute_all_countries(all_data, version)
 sensitivity_results <- sensitivity_all_countries(all_data, version)
 
 # ── B. Version comparison ─────────────────────────────────────────────────────
-# Compare SEPI ranks between the active version and a baseline.
-baseline_results <- compute_all_countries(all_data, VERSIONS$v1_equal_geometric)
+# Compare SEPI ranks between v3_conflict_weighted (min-max) and v3_zscore.
+# sepi_results (v3_zscore) is already computed above — reuse it.
+baseline_v3 <- compute_all_countries(all_data, VERSIONS$v3_conflict_weighted)
 
 comparison <- compare_versions(list(
-  v1_equal = baseline_results,
-  active   = sepi_results
+  v3_minmax = baseline_v3,
+  v3_zscore = sepi_results
 ))
 
 for (country in names(comparison)) {
-  cat("\n", country_label(country), "— Rank correlation (v1_equal vs active):\n")
+  cat("\n", country_label(country), "— Rank correlations:\n")
   print(round(comparison[[country]]$rank_correlation, 3))
 }
 
