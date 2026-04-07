@@ -165,10 +165,16 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
     # 1. Impute
     data <- impute_missing_v3(data, c(se_vars, conflict_col), cfg$imputation)
 
-    # 2. Min-max normalise SE vars (preserving original direction, no polarity flip)
+    # 2. Normalise SE vars using the configured method (no polarity flip for v3)
+    norm_fn <- switch(version$normalisation,
+      min_max = normalise_min_max,
+      z_score = normalise_z_score,
+      rank    = normalise_rank,
+      normalise_min_max  # fallback
+    )
     for (v in se_vars) {
       if (v %in% names(data)) {
-        data[[paste0(v, "_norm")]] <- normalise_min_max(data[[v]])
+        data[[paste0(v, "_norm")]] <- norm_fn(data[[v]])
       }
     }
 
@@ -198,11 +204,15 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
     matched_weights <- eff_weights[sub("_norm$", "", weight_cols)]
     data$sepi_raw <- as.numeric(norm_mat %*% matched_weights)
 
-    # 5. Rescale to 0-1
-    data$sepi <- as.numeric(normalise_min_max(data$sepi_raw))
+    # 5. Rescale to 0-1 (skipped when skip_final_rescale = TRUE, e.g. z-score robustness)
+    data$sepi <- if (isTRUE(version$skip_final_rescale)) {
+      data$sepi_raw
+    } else {
+      as.numeric(normalise_min_max(data$sepi_raw))
+    }
 
     # 6. Rank (1 = best socio-economic conditions = highest SEPI)
-    data$sepi_rank <- rank(-data$sepi, na.last = "last", ties.method = "min")
+    data$sepi_rank <- rank(-data$sepi, na.last = TRUE, ties.method = "min")
 
     # 7. Pillar columns from pillar_map (normalised representative indicator)
     pillar_names <- character(0)
@@ -330,7 +340,7 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
   )
 
   # 6. Rank (1 = best socio-economic conditions)
-  data$sepi_rank <- rank(-data$sepi, na.last = "last", ties.method = "min")
+  data$sepi_rank <- rank(-data$sepi, na.last = TRUE, ties.method = "min")
 
   # 7. Record which version produced these results
   attr(data, "sepi_version") <- version$name
@@ -381,6 +391,77 @@ indicator_sensitivity <- function(data, country_config, version) {
 
   rows <- list()
 
+  # ---- V3 path: se_vars instead of pillars ----------------------------------
+  if (isTRUE(version$conflict_weighting)) {
+    se_vars <- unlist(country_config$se_vars)   # ensure character vector, not list
+    n_total <- length(se_vars)
+
+    for (ind in se_vars) {
+      keep_idx       <- se_vars != ind
+      reduced_config <- country_config
+      reduced_config$se_vars <- se_vars[keep_idx]
+      is_sole <- n_total == 1
+
+      reduced_result <- tryCatch(
+        suppressWarnings(compute_sepi(data, version, country_config = reduced_config)),
+        error = function(e) NULL
+      )
+
+      if (is.null(reduced_result)) {
+        rows[[length(rows) + 1]] <- data.frame(
+          pillar               = NA_character_,
+          indicator            = ind,
+          n_pillar_indicators  = n_total,
+          is_sole_indicator    = is_sole,
+          spearman_rho         = NA_real_,
+          mean_abs_rank_shift  = NA_real_,
+          max_abs_rank_shift   = NA_real_,
+          interpretation       = "computation_failed",
+          stringsAsFactors     = FALSE
+        )
+        next
+      }
+
+      reduced_ids <- reduced_result[[id_col]]
+      common_ids  <- intersect(full_ids, reduced_ids)
+      full_r      <- full_ranks[match(common_ids, full_ids)]
+      reduced_r   <- reduced_result$sepi_rank[match(common_ids, reduced_ids)]
+      valid       <- !is.na(full_r) & !is.na(reduced_r)
+
+      if (sum(valid) < 3) {
+        rho <- NA_real_; mean_shift <- NA_real_; max_shift <- NA_real_
+      } else {
+        rho        <- round(stats::cor(full_r[valid], reduced_r[valid], method = "spearman"), 3)
+        rank_diffs <- abs(full_r[valid] - reduced_r[valid])
+        mean_shift <- round(mean(rank_diffs), 2)
+        max_shift  <- round(max(rank_diffs), 0)
+      }
+
+      interpretation <- if (is_sole) "sole_indicator"
+        else if (is.na(rho))  "insufficient_data"
+        else if (rho > 0.95)  "redundant"
+        else if (rho < 0.80)  "highly_influential"
+        else                  "moderate_influence"
+
+      rows[[length(rows) + 1]] <- data.frame(
+        pillar               = NA_character_,
+        indicator            = ind,
+        n_pillar_indicators  = n_total,
+        is_sole_indicator    = is_sole,
+        spearman_rho         = rho,
+        mean_abs_rank_shift  = mean_shift,
+        max_abs_rank_shift   = max_shift,
+        interpretation       = interpretation,
+        stringsAsFactors     = FALSE
+      )
+    }
+
+    result <- do.call(rbind, rows)
+    rownames(result) <- NULL
+    return(result)
+  }
+
+  # ---- V1/V2 path: pillars --------------------------------------------------
   for (p_name in names(country_config$pillars)) {
     pillar     <- country_config$pillars[[p_name]]
     indicators <- pillar$indicators
