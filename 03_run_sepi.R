@@ -21,7 +21,7 @@ source("R/visualise.R")
 source("R/export_excel.R")
 
 # ── Configure ─────────────────────────────────────────────────────────────────
-version <- VERSIONS$v3_conflict_weighted   # ← change to switch version
+version <- VERSIONS$v3_zscore  # ← change to switch version
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 all_data         <- load_all_data(version = version)
