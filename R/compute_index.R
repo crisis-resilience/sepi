@@ -212,7 +212,7 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
     }
 
     # 6. Rank (1 = best socio-economic conditions = highest SEPI)
-    data$sepi_rank <- rank(-data$sepi, na.last = TRUE, ties.method = "min")
+    data$sepi_rank <- rank(-data$sepi, na.last = NA, ties.method = "min")
 
     # 7. Pillar columns from pillar_map (normalised representative indicator)
     pillar_names <- character(0)
@@ -340,7 +340,7 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
   )
 
   # 6. Rank (1 = best socio-economic conditions)
-  data$sepi_rank <- rank(-data$sepi, na.last = TRUE, ties.method = "min")
+  data$sepi_rank <- rank(-data$sepi, na.last = NA, ties.method = "min")
 
   # 7. Record which version produced these results
   attr(data, "sepi_version") <- version$name
