@@ -9,13 +9,31 @@ library(patchwork)
 resolve_conflict_plot_var <- function(conflict_var, per_capita = TRUE) {
   if (!per_capita) return(conflict_var)
 
+  # Strip any year suffix (e.g. _2025) to build the base name, then re-add suffix
+  base    <- sub("_\\d{4}$", "", conflict_var)
+  suffix  <- regmatches(conflict_var, regexpr("_\\d{4}$", conflict_var))
+  suffix  <- if (length(suffix) == 0) "" else suffix
+
   rate_lookup <- c(
     count_conflict_events_2025 = "count_conflicts_events_per_1k_2025",
     total_fatalities_2025 = "total_fatalities_per_1k_2025"
   )
 
-  resolved <- unname(rate_lookup[conflict_var])
-  if (length(resolved) == 0 || is.na(resolved)) conflict_var else resolved
+  resolved_base <- unname(rate_lookup[base])
+  if (length(resolved_base) == 0 || is.na(resolved_base)) {
+    conflict_var
+  } else {
+    paste0(resolved_base, suffix)
+  }
+}
+
+# Helper: find the per-1k conflict events column in a data frame,
+# regardless of year suffix (e.g. _2025 or none).
+.detect_conflict_col <- function(data) {
+  cols <- names(data)
+  # Prefer year-suffixed first (most specific), then unsuffixed fallback
+  hit <- grep("^count_conflicts_events_per_1k", cols, value = TRUE)
+  if (length(hit) > 0) hit[1] else NULL
 }
 
 # ---- 1. Rankings bar chart -------------------------------------------------
@@ -118,6 +136,16 @@ plot_sepi_vs_conflict <- function(conflict_result, country_name,
                                    per_capita = TRUE, save = TRUE) {
   label <- country_label(country_name)
   data  <- conflict_result$data
+
+  # Auto-detect conflict column when not specified
+  if (is.null(conflict_var)) {
+    conflict_var <- .detect_conflict_col(data)
+    if (is.null(conflict_var)) {
+      warning("No conflict events per 1k column found.")
+      return(invisible(NULL))
+    }
+    per_capita <- FALSE  # column is already per-1k
+  }
 
   y_var <- resolve_conflict_plot_var(conflict_var, per_capita = per_capita)
   if (!y_var %in% names(data)) {
@@ -289,7 +317,7 @@ plot_sepi_map <- function(sepi_result, country_name,
   # --- Conflict panel (optional) ---
   conflict_col <- "count_conflicts_events_per_1k_2025"
 
-  if (!is.null(conflict_data) && conflict_col %in% names(conflict_data)) {
+  if (!is.null(conflict_data) && !is.null(conflict_col) && conflict_col %in% names(conflict_data)) {
     conf_df <- dplyr::left_join(
       shp,
       dplyr::select(conflict_data, adm1_pcode,
