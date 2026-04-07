@@ -24,7 +24,7 @@ source("R/diagnostics.R")
 source("R/compute_index.R")
 
 # ── Configure ─────────────────────────────────────────────────────────────────
-version <- VERSIONS$v3_conflict_weighted   # ← change to switch version
+version <- VERSIONS$v3_zscore   # ← change to switch version
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 all_data <- load_all_data(version = version)
