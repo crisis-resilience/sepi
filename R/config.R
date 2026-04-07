@@ -84,7 +84,10 @@ VERSIONS <- local({
          "Install with: install.packages('jsonlite')")
   }
 
-  files <- list.files("versions", pattern = "^[^_].*\\.json$", full.names = TRUE)
+  files <- c(
+    list.files("versions",          pattern = "^[^_].*\\.json$", full.names = TRUE),
+    list.files("robustness_checks", pattern = "^[^_].*\\.json$", full.names = TRUE)
+  )
   if (length(files) == 0) {
     warning("No version JSON files found in versions/")
     return(list())
