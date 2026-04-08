@@ -298,7 +298,7 @@ plot_sepi_map <- function(sepi_result, country_name,
     )
 
     legend_label    <- "Events\nper 1k"
-    conflict_subtitle <- "Conflict events per 1k population"
+    conflict_subtitle <- "Conflict events per 1k population (2025)"
 
     if (conflict_trans == "log1p") {
       conf_df        <- dplyr::mutate(conf_df, conflict = log1p(conflict))

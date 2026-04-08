@@ -34,7 +34,7 @@
       },
 
       "_comment_flat": "--- CONFLICT-WEIGHTED FLAT structure (used with conflict_weighted aggregation) ---",
-      "conflict_col": "count_conflicts_events_per_1k",
+      "conflict_col": "count_conflicts_events_per_1k_2025",
       "imputation": "mean | omit",
       "se_vars": ["indicator_col_1", "indicator_col_2"],
       "bad_vars": ["indicator_col_with_negative_polarity_1"],
@@ -46,8 +46,8 @@
 
       "_comment_conflict": "--- Conflict indicators (required for both structures) ---",
       "conflict": {
-        "indicators": ["total_fatalities", "count_conflict_events", "total_fatalities_per_1k", "count_conflicts_events_per_1k"],
-        "labels": ["Total fatalities", "Total conflict events", "Fatalities per 1k pop", "Conflict events per 1k pop"]
+        "indicators": ["total_fatalities_2025", "count_conflict_events_2025", "total_fatalities_per_1k_2025", "count_conflicts_events_per_1k_2025"],
+        "labels": ["Total fatalities (2025)", "Total conflict events (2025)", "Fatalities per 1k pop (2025)", "Conflict events per 1k pop (2025)"]
       }
     }
 
