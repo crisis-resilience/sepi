@@ -208,11 +208,17 @@ build_readme_sheet <- function(wb, version, header_style) {
           version$across_pillar_agg, " mean",
           if (version$weighting == "equal") {
             " with equal pillar weights."
-          } else {
+          } else if (version$weighting == "conflict") {
+            " with conflict-correlation derived weights."
+          } else if (version$weighting == "bod") {
+            " with Benefit of the Doubt (BoD/DEA) endogenous weights per district."
+          } else if (!is.null(version$pillar_weights)) {
             paste0(" with custom pillar weights: ",
                    paste(names(version$pillar_weights), "=",
                          round(version$pillar_weights, 3), collapse = ", "),
                    ".")
+          } else {
+            "."
           }
         ),
         "Regions are ranked within each country (1 = best socio-economic conditions).",
@@ -271,12 +277,12 @@ build_indicator_scores_sheet <- function(wb, sepi_results, config, version, head
     cc <- config[[country]]
     id_cols <- cc$id_cols
 
-    if (isTRUE(version$conflict_weighting) && !is.null(cc$granular_vars)) {
-      # V3: use granular_vars for full sub-indicator export
+    if (!is.null(cc$granular_vars)) {
+      # Use granular_vars when defined — works for any version that sets them
       norm_cols <- paste0(cc$granular_vars, "_norm")
       norm_cols <- norm_cols[norm_cols %in% names(res)]
     } else {
-      # V1/V2: all _norm columns present in data
+      # Fallback: all _norm columns present in data (v1/v2)
       norm_cols <- grep("_norm$", names(res), value = TRUE)
     }
 
@@ -296,76 +302,96 @@ build_indicator_scores_sheet <- function(wb, sepi_results, config, version, head
                          cols = seq_len(ncol(combined)), widths = "auto")
 }
 
+# ---- Indicator Details helpers ----------------------------------------------
+
+# Returns a named character vector: indicator -> pillar name.
+# Works for any country config that has either 'pillars' or 'pillar_map'.
+get_ind_to_pillar <- function(cc) {
+  result <- character(0)
+  if (!is.null(cc$pillars)) {
+    for (p in names(cc$pillars))
+      for (ind in cc$pillars[[p]]$indicators) result[ind] <- p
+  } else if (!is.null(cc$pillar_map)) {
+    for (p in names(cc$pillar_map)) result[cc$pillar_map[[p]]] <- p
+  }
+  result
+}
+
+# Returns the character vector of indicators that enter the SEPI score.
+# Works for pillars-based (v1/v2), se_vars-based (v3 conflict), and
+# pillar_map-based (BoD) configs.
+get_sepi_vars <- function(cc) {
+  if (!is.null(cc$pillars)) {
+    unlist(lapply(cc$pillars, `[[`, "indicators"), use.names = FALSE)
+  } else if (!is.null(cc$pillar_map)) {
+    unname(unlist(cc$pillar_map))
+  } else {
+    cc$se_vars %||% character(0)
+  }
+}
+
+# Returns a named character vector: indicator -> weight label/value (as string).
+# Adding a new version only requires adding a branch here.
+get_indicator_weights <- function(cc, version, sepi_result, sepi_vars) {
+  if (isTRUE(version$conflict_weighting)) {
+    eff_wts <- attr(sepi_result, "v3_effective_weights")
+    if (!is.null(eff_wts)) {
+      as.character(round(eff_wts[sepi_vars[sepi_vars %in% names(eff_wts)]], 4))
+    } else {
+      stats::setNames(rep(NA_character_, length(sepi_vars)), sepi_vars)
+    }
+
+  } else if (isTRUE(version$bod_weighting)) {
+    n      <- length(cc$pillar_map)
+    eq_w   <- 1 / n
+    flex   <- version$bod_weight_flex %||% 0.5
+    label  <- sprintf("BoD endogenous [%.3f, %.3f]", eq_w * (1 - flex), eq_w * (1 + flex))
+    stats::setNames(rep(label, length(sepi_vars)), sepi_vars)
+
+  } else if (!is.null(cc$pillars)) {
+    pillar_names <- names(cc$pillars)
+    n_pillars    <- length(pillar_names)
+    pw <- if (version$weighting == "equal") {
+      stats::setNames(rep(1 / n_pillars, n_pillars), pillar_names)
+    } else if (!is.null(version$pillar_weights)) {
+      version$pillar_weights[pillar_names]
+    } else {
+      stats::setNames(rep(NA_real_, n_pillars), pillar_names)
+    }
+    result <- character(0)
+    for (p in pillar_names) {
+      inds <- cc$pillars[[p]]$indicators
+      for (ind in inds) result[ind] <- as.character(round(pw[[p]] / length(inds), 4))
+    }
+    result
+
+  } else {
+    stats::setNames(rep(NA_character_, length(sepi_vars)), sepi_vars)
+  }
+}
+
 build_indicator_details_sheet <- function(wb, sepi_results, version, config, header_style) {
 
   detail_list <- list()
 
-  if (isTRUE(version$conflict_weighting)) {
-    # V3: show all granular_vars; weights only for se_vars
-    for (country in names(config)) {
-      cc         <- config[[country]]
-      all_vars   <- cc$granular_vars %||% cc$se_vars
-      se_vars    <- cc$se_vars
-      bad_vars   <- cc$bad_vars
-      pillar_map <- cc$pillar_map
+  for (country in names(config)) {
+    cc            <- config[[country]]
+    bad_vars      <- cc$bad_vars %||% character(0)
+    ind_to_pillar <- get_ind_to_pillar(cc)
+    sepi_vars     <- get_sepi_vars(cc)
+    all_vars      <- cc$granular_vars %||% sepi_vars
+    weights       <- get_indicator_weights(cc, version, sepi_results[[country]], sepi_vars)
 
-      # Build reverse pillar lookup: indicator -> pillar name
-      ind_to_pillar <- character(0)
-      if (!is.null(pillar_map)) {
-        for (p_name in names(pillar_map)) {
-          ind_to_pillar[pillar_map[[p_name]]] <- p_name
-        }
-      }
-
-      # Effective weights only exist for se_vars
-      eff_wts <- NULL
-      if (!is.null(sepi_results[[country]])) {
-        eff_wts <- attr(sepi_results[[country]], "v3_effective_weights")
-      }
-
-      for (v in all_vars) {
-        polarity  <- ifelse(v %in% bad_vars, -1, 1)
-        pillar    <- if (v %in% names(ind_to_pillar)) ind_to_pillar[v] else NA_character_
-        in_sepi   <- v %in% se_vars
-        wt        <- if (in_sepi && !is.null(eff_wts) && v %in% names(eff_wts)) eff_wts[v] else NA_real_
-
-        detail_list[[length(detail_list) + 1]] <- tibble::tibble(
-          country      = country_label(country),
-          pillar       = pillar,
-          indicator    = v,
-          polarity     = polarity,
-          label        = v,
-          used_in_sepi = in_sepi,
-          weight       = wt
-        )
-      }
-    }
-  } else {
-    # V1/V2: use pillars config
-    for (country in names(config)) {
-      cc           <- config[[country]]
-      pillar_names <- names(cc$pillars)
-      n_pillars    <- length(pillar_names)
-
-      if (version$weighting == "equal") {
-        pw <- stats::setNames(rep(1 / n_pillars, n_pillars), pillar_names)
-      } else {
-        pw <- version$pillar_weights[pillar_names]
-      }
-
-      for (p_name in pillar_names) {
-        p_def <- cc$pillars[[p_name]]
-        n_ind <- length(p_def$indicators)
-
-        detail_list[[length(detail_list) + 1]] <- tibble::tibble(
-          country   = country_label(country),
-          pillar    = p_name,
-          indicator = p_def$indicators,
-          polarity  = p_def$polarity,
-          label     = p_def$labels,
-          weight    = pw[[p_name]] / n_ind
-        )
-      }
+    for (v in all_vars) {
+      detail_list[[length(detail_list) + 1]] <- tibble::tibble(
+        country      = country_label(country),
+        pillar       = if (v %in% names(ind_to_pillar)) ind_to_pillar[[v]] else NA_character_,
+        indicator    = v,
+        polarity     = ifelse(v %in% bad_vars, -1L, 1L),
+        label        = v,
+        used_in_sepi = v %in% sepi_vars,
+        weight       = if (v %in% names(weights)) weights[[v]] else NA_character_
+      )
     }
   }
 

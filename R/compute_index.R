@@ -135,6 +135,70 @@ compute_conflict_weights <- function(data, se_vars, conflict_col, bad_vars) {
   effective
 }
 
+# ---- BoD (Benefit of the Doubt) weight computation -------------------------
+
+#' Compute Benefit of the Doubt (BoD/DEA) scores for all districts
+#'
+#' For each district, solves a linear program that finds indicator weights
+#' maximising that district's composite score, subject to no other district
+#' exceeding 1 under those same weights.  Weight flexibility around equal
+#' weights is controlled by flex (0.5 = ±50% of 1/n, Scenario I from JRC
+#' handbook; 1.0 = weights can reach zero, Scenario II).
+#'
+#' Requires the lpSolve package.
+#'
+#' @param norm_mat  Numeric matrix — rows = districts, cols = indicators.
+#'                  All values must be in [0,1] with higher = better
+#'                  (bad_vars should be pre-flipped before calling).
+#' @param flex      Flexibility around equal weight (default 0.5 = ±50%).
+#' @return Numeric vector of BoD scores in [0,1], one per district.
+compute_bod_sepi <- function(norm_mat, flex = 0.5) {
+  if (!requireNamespace("lpSolve", quietly = TRUE)) {
+    stop("Package 'lpSolve' is required for BoD weighting. ",
+         "Install with: install.packages('lpSolve')")
+  }
+
+  n_units <- nrow(norm_mat)
+  n_ind   <- ncol(norm_mat)
+  eq_w    <- 1 / n_ind
+  lb      <- max(0, eq_w * (1 - flex))
+  ub      <- eq_w * (1 + flex)
+
+  bod_scores <- numeric(n_units)
+
+  # Build bound rows once — same for every district
+  # Upper bounds: w_i <= ub  → one-hot row per indicator
+  # Lower bounds: w_i >= lb  → -w_i <= -lb  → negative one-hot row per indicator
+  ub_mat <- diag(n_ind)                   # w_i <= ub
+  lb_mat <- -diag(n_ind)                  # -w_i <= -lb
+
+  for (c_idx in seq_len(n_units)) {
+    # Objective: maximise w'x_c  →  minimise -w'x_c
+    obj <- -norm_mat[c_idx, ]
+
+    # Constraints:
+    #   w'x_d ≤ 1  for all districts d  (efficiency frontier)
+    #   Σ w_i = 1                        (weights sum to 1)
+    #   w_i ≤ ub                         (upper weight bounds)
+    #  -w_i ≤ -lb                        (lower weight bounds)
+    con_mat <- rbind(norm_mat, rep(1, n_ind), ub_mat, lb_mat)
+    con_dir <- c(rep("<=", n_units), "=", rep("<=", n_ind), rep("<=", n_ind))
+    con_rhs <- c(rep(1, n_units), 1, rep(ub, n_ind), rep(-lb, n_ind))
+
+    sol <- lpSolve::lp(
+      direction    = "min",
+      objective.in = obj,
+      const.mat    = con_mat,
+      const.dir    = con_dir,
+      const.rhs    = con_rhs
+    )
+
+    bod_scores[c_idx] <- if (sol$status == 0) -sol$objval else NA_real_
+  }
+
+  bod_scores
+}
+
 # ---- Main index function ----------------------------------------------------
 
 compute_sepi <- function(data, version, country_name = NULL, country_config = NULL) {
@@ -254,6 +318,86 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
     attr(data, "v3_effective_weights") <- eff_weights
     attr(data, "sepi_version") <- version$name
 
+    return(data)
+  }
+
+  # ---- BoD weighting path ---------------------------------------------------
+  if (isTRUE(version$bod_weighting)) {
+    cfg        <- cfg_resolved
+    bad_vars   <- cfg$bad_vars
+    pillar_map <- cfg$pillar_map
+    bod_flex   <- if (!is.null(version$bod_weight_flex)) version$bod_weight_flex else 0.5
+
+    if (is.null(pillar_map) || length(pillar_map) == 0) {
+      stop("BoD weighting requires 'pillar_map' in country config (one indicator per pillar).")
+    }
+
+    # BoD weights across pillars — one representative indicator per pillar,
+    # as defined by pillar_map. This follows the standard BoD setup
+    # (Cherchye et al., 2007): each pillar is a sub-dimension and BoD finds
+    # optimal weights across them per district.
+    pillar_vars <- unname(unlist(pillar_map))
+    pillar_vars <- pillar_vars[pillar_vars %in% names(data)]
+
+    # 1. Impute (same strategy as v3)
+    data <- impute_missing_v3(data, pillar_vars, cfg$imputation)
+
+    # 2. Normalise pillar representative indicators to [0,1] with min-max
+    for (v in pillar_vars) {
+      data[[paste0(v, "_norm")]] <- normalise_min_max(data[[v]])
+    }
+
+    # 3. Flip bad_vars so that higher = better for all indicators.
+    #    BoD maximises composite score, so all inputs must point the same way.
+    for (v in intersect(pillar_vars, bad_vars)) {
+      nc <- paste0(v, "_norm")
+      if (nc %in% names(data)) data[[nc]] <- 1 - data[[nc]]
+    }
+
+    # 4. Build normalised matrix and run BoD LP
+    norm_cols <- paste0(pillar_vars, "_norm")
+    norm_cols <- norm_cols[norm_cols %in% names(data)]
+    norm_mat  <- as.matrix(data[, norm_cols, drop = FALSE])
+
+    cat(sprintf("[BoD] Solving %d LP problems (%d pillars, flex=%.2f)...\n",
+                nrow(norm_mat), ncol(norm_mat), bod_flex))
+
+    data$sepi_raw <- compute_bod_sepi(norm_mat, flex = bod_flex)
+    data$sepi     <- data$sepi_raw
+
+    # 5. Rank (1 = best = highest BoD score)
+    data$sepi_rank <- rank(-data$sepi, na.last = NA, ties.method = "min")
+
+    # 6. Pillar columns (normalised representative indicator per pillar)
+    if (!is.null(pillar_map)) {
+      pillar_names <- names(pillar_map)
+      for (p_name in pillar_names) {
+        rep_var  <- pillar_map[[p_name]]
+        norm_col <- paste0(rep_var, "_norm")
+        data[[paste0("pillar_", p_name)]] <-
+          if (norm_col %in% names(data)) data[[norm_col]] else NA_real_
+      }
+      pillar_cols   <- paste0("pillar_", pillar_names)
+      data$n_pillars <- apply(
+        data[, pillar_cols, drop = FALSE], 1,
+        function(row) sum(!is.na(row))
+      )
+    } else {
+      data$n_pillars <- NA_integer_
+    }
+
+    # 7. Normalise granular_vars for export (same as v3 path)
+    granular_vars <- cfg$granular_vars
+    if (!is.null(granular_vars)) {
+      for (v in granular_vars) {
+        norm_col <- paste0(v, "_norm")
+        if (v %in% names(data) && !norm_col %in% names(data)) {
+          data[[norm_col]] <- normalise_min_max(data[[v]])
+        }
+      }
+    }
+
+    attr(data, "sepi_version") <- version$name
     return(data)
   }
 
@@ -390,6 +534,85 @@ indicator_sensitivity <- function(data, country_config, version) {
   full_ids     <- full_result[[id_col]]
 
   rows <- list()
+
+  # ---- BoD path: pillar_map instead of pillars or se_vars -------------------
+  if (isTRUE(version$bod_weighting)) {
+    pillar_map <- country_config$pillar_map
+    if (is.null(pillar_map) || length(pillar_map) == 0) {
+      return(data.frame())
+    }
+
+    pillar_vars <- unname(unlist(pillar_map))
+    n_total     <- length(pillar_vars)
+
+    for (ind in pillar_vars) {
+      # Remove this pillar's indicator from pillar_map
+      keep_names     <- names(pillar_map)[unlist(pillar_map) != ind]
+      reduced_config <- country_config
+      reduced_config$pillar_map <- pillar_map[keep_names]
+      is_sole <- n_total == 1
+
+      reduced_result <- tryCatch(
+        suppressWarnings(compute_sepi(data, version, country_config = reduced_config)),
+        error = function(e) NULL
+      )
+
+      # Find which pillar this indicator belongs to
+      pillar_name <- names(pillar_map)[unlist(pillar_map) == ind]
+
+      if (is.null(reduced_result)) {
+        rows[[length(rows) + 1]] <- data.frame(
+          pillar               = pillar_name,
+          indicator            = ind,
+          n_pillar_indicators  = n_total,
+          is_sole_indicator    = is_sole,
+          spearman_rho         = NA_real_,
+          mean_abs_rank_shift  = NA_real_,
+          max_abs_rank_shift   = NA_real_,
+          interpretation       = "computation_failed",
+          stringsAsFactors     = FALSE
+        )
+        next
+      }
+
+      reduced_ids <- reduced_result[[id_col]]
+      common_ids  <- intersect(full_ids, reduced_ids)
+      full_r      <- full_ranks[match(common_ids, full_ids)]
+      reduced_r   <- reduced_result$sepi_rank[match(common_ids, reduced_ids)]
+      valid       <- !is.na(full_r) & !is.na(reduced_r)
+
+      if (sum(valid) < 3) {
+        rho <- NA_real_; mean_shift <- NA_real_; max_shift <- NA_real_
+      } else {
+        rho        <- round(stats::cor(full_r[valid], reduced_r[valid], method = "spearman"), 3)
+        rank_diffs <- abs(full_r[valid] - reduced_r[valid])
+        mean_shift <- round(mean(rank_diffs), 2)
+        max_shift  <- round(max(rank_diffs), 0)
+      }
+
+      interpretation <- if (is_sole)       "sole_indicator"
+        else if (is.na(rho))               "insufficient_data"
+        else if (rho > 0.95)               "redundant"
+        else if (rho < 0.80)               "highly_influential"
+        else                               "moderate_influence"
+
+      rows[[length(rows) + 1]] <- data.frame(
+        pillar               = pillar_name,
+        indicator            = ind,
+        n_pillar_indicators  = n_total,
+        is_sole_indicator    = is_sole,
+        spearman_rho         = rho,
+        mean_abs_rank_shift  = mean_shift,
+        max_abs_rank_shift   = max_shift,
+        interpretation       = interpretation,
+        stringsAsFactors     = FALSE
+      )
+    }
+
+    result <- do.call(rbind, rows)
+    rownames(result) <- NULL
+    return(result)
+  }
 
   # ---- V3 path: se_vars instead of pillars ----------------------------------
   if (isTRUE(version$conflict_weighting)) {
