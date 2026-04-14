@@ -206,19 +206,27 @@ aggregate_acled_to_adm1 <- function(acled_events,
                                     country_key,
                                     adm_lookup,
                                     config = MERGE_BUILD_CONFIG) {
+  start_yr  <- as.integer(substr(config$conflict$start_date, 1, 4))
+  end_yr    <- as.integer(substr(config$conflict$end_date,   1, 4))
+  all_years <- seq(start_yr, end_yr)
+
+  empty_wide <- function() {
+    base <- tibble::tibble(country = character(), adm1_pcode = character())
+    for (yr in all_years) {
+      base[[paste0("total_fatalities_",      yr)]] <- numeric()
+      base[[paste0("count_conflict_events_", yr)]] <- integer()
+    }
+    base
+  }
+
   if (nrow(acled_events) == 0) {
     return(list(
-      data = tibble::tibble(
-        country = character(),
-        adm1_pcode = character(),
-        total_fatalities = numeric(),
-        count_conflict_events = integer()
-      ),
+      data = empty_wide(),
       unmatched = tibble::tibble(
-        country = character(),
-        admin1 = character(),
-        admin1_norm = character(),
-        total_fatalities = numeric(),
+        country               = character(),
+        admin1                = character(),
+        admin1_norm           = character(),
+        total_fatalities      = numeric(),
         count_conflict_events = integer()
       )
     ))
@@ -228,10 +236,13 @@ aggregate_acled_to_adm1 <- function(acled_events,
 
   agg <- acled_events |>
     dplyr::filter(event_type %in% event_types) |>
-    dplyr::mutate(fatalities = suppressWarnings(as.numeric(fatalities))) |>
-    dplyr::group_by(admin1) |>
+    dplyr::mutate(
+      fatalities = suppressWarnings(as.numeric(fatalities)),
+      year       = as.integer(year)
+    ) |>
+    dplyr::group_by(admin1, year) |>
     dplyr::summarise(
-      total_fatalities = sum(fatalities, na.rm = TRUE),
+      total_fatalities      = sum(fatalities, na.rm = TRUE),
       count_conflict_events = dplyr::n(),
       .groups = "drop"
     ) |>
@@ -253,7 +264,7 @@ aggregate_acled_to_adm1 <- function(acled_events,
   overrides <- config$country_mapping[[country_key]]$acled_admin1_overrides
   if (length(overrides) > 0) {
     override_tbl <- tibble::tibble(
-      admin1_norm = normalize_admin_name(names(overrides)),
+      admin1_norm         = normalize_admin_name(names(overrides)),
       adm1_pcode_override = unname(overrides)
     )
     joined <- joined |>
@@ -262,20 +273,42 @@ aggregate_acled_to_adm1 <- function(acled_events,
       dplyr::select(-adm1_pcode_override)
   }
 
-  matched <- joined |>
+  matched_long <- joined |>
     dplyr::filter(!is.na(adm1_pcode)) |>
-    dplyr::group_by(country, adm1_pcode) |>
+    dplyr::group_by(country, adm1_pcode, year) |>
     dplyr::summarise(
-      total_fatalities = sum(total_fatalities, na.rm = TRUE),
+      total_fatalities      = sum(total_fatalities,      na.rm = TRUE),
       count_conflict_events = sum(count_conflict_events, na.rm = TRUE),
       .groups = "drop"
     )
 
+  matched_wide <- matched_long |>
+    tidyr::pivot_wider(
+      names_from  = year,
+      values_from = c(total_fatalities, count_conflict_events),
+      values_fill = 0
+    )
+
+  # Ensure all expected year columns exist (years with zero events may be absent)
+  for (yr in all_years) {
+    fat_col <- paste0("total_fatalities_",      yr)
+    evt_col <- paste0("count_conflict_events_", yr)
+    if (!fat_col %in% names(matched_wide)) matched_wide[[fat_col]] <- 0
+    if (!evt_col %in% names(matched_wide)) matched_wide[[evt_col]] <- 0L
+  }
+
   unmatched <- joined |>
     dplyr::filter(is.na(adm1_pcode)) |>
+    dplyr::group_by(admin1, admin1_norm) |>
+    dplyr::summarise(
+      total_fatalities      = sum(total_fatalities,      na.rm = TRUE),
+      count_conflict_events = sum(count_conflict_events, na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    dplyr::mutate(country = country_key) |>
     dplyr::select(country, admin1, admin1_norm, total_fatalities, count_conflict_events)
 
-  list(data = matched, unmatched = unmatched)
+  list(data = matched_wide, unmatched = unmatched)
 }
 
 build_conflict_cross_section <- function(adm_lookup,
@@ -303,28 +336,40 @@ build_conflict_cross_section <- function(adm_lookup,
   list(data = conflict_data, unmatched = unmatched)
 }
 
-merge_all_indicator_domains <- function(se_base, rs_latest, conflict_data) {
+merge_all_indicator_domains <- function(se_base, rs_latest, conflict_data,
+                                        config = MERGE_BUILD_CONFIG) {
+  start_yr  <- as.integer(substr(config$conflict$start_date, 1, 4))
+  end_yr    <- as.integer(substr(config$conflict$end_date,   1, 4))
+  all_years <- seq(start_yr, end_yr)
+
   merged <- se_base |>
-    dplyr::left_join(rs_latest, by = c("country", "adm1_pcode")) |>
-    dplyr::left_join(conflict_data, by = c("country", "adm1_pcode")) |>
-    dplyr::mutate(
-      total_fatalities = tidyr::replace_na(total_fatalities, 0),
-      count_conflict_events = tidyr::replace_na(count_conflict_events, 0L),
-      total_fatalities_per_1k = dplyr::if_else(
-        !is.na(population) & population > 0,
-        (total_fatalities / population) * 1000,
-        NA_real_
-      ),
-      count_conflicts_events_per_1k = dplyr::if_else(
-        !is.na(population) & population > 0,
-        (count_conflict_events / population) * 1000,
-        NA_real_
-      )
-    ) |>
+    dplyr::left_join(rs_latest,     by = c("country", "adm1_pcode")) |>
+    dplyr::left_join(conflict_data, by = c("country", "adm1_pcode"))
+
+  for (yr in all_years) {
+    fat_col <- paste0("total_fatalities_",            yr)
+    evt_col <- paste0("count_conflict_events_",       yr)
+    fat_1k  <- paste0("total_fatalities_per_1k_",     yr)
+    evt_1k  <- paste0("count_conflicts_events_per_1k_", yr)
+
+    merged[[fat_col]] <- tidyr::replace_na(merged[[fat_col]], 0)
+    merged[[evt_col]] <- tidyr::replace_na(as.integer(merged[[evt_col]]), 0L)
+
+    merged[[fat_1k]] <- dplyr::if_else(
+      !is.na(merged$population) & merged$population > 0,
+      (merged[[fat_col]] / merged$population) * 1000,
+      NA_real_
+    )
+    merged[[evt_1k]] <- dplyr::if_else(
+      !is.na(merged$population) & merged$population > 0,
+      (merged[[evt_col]] / merged$population) * 1000,
+      NA_real_
+    )
+  }
+
+  merged |>
     dplyr::select(-population) |>
     dplyr::arrange(country, adm1_name)
-
-  merged
 }
 
 build_remote_metadata_rows <- function(se_base,
@@ -373,51 +418,60 @@ build_remote_metadata_rows <- function(se_base,
 }
 
 build_conflict_metadata_rows <- function(config = MERGE_BUILD_CONFIG) {
-  vars <- c(
-    "total_fatalities",
-    "count_conflict_events",
-    "total_fatalities_per_1k",
-    "count_conflicts_events_per_1k"
-  )
-  id_suffix <- c("CFT_01", "CFT_02", "CFT_03", "CFT_04")
-  names_lbl <- c(
-    "Total conflict fatalities",
-    "Count of conflict events",
-    "Total conflict fatalities per 1,000 population",
-    "Count of conflict events per 1,000 population"
-  )
-  descr <- c(
-    "Total ACLED fatalities aggregated at ADM1 for selected conflict event types.",
-    "Count of ACLED events (Battles, Explosions/Remote violence, Violence against civilians) aggregated at ADM1.",
-    "Total ACLED fatalities aggregated at ADM1 and normalized per 1,000 population.",
-    "Count of ACLED events aggregated at ADM1 and normalized per 1,000 population."
-  )
-  units <- c("count (deaths)", "count (events)", "count per 1,000", "count per 1,000")
+  start_yr  <- as.integer(substr(config$conflict$start_date, 1, 4))
+  end_yr    <- as.integer(substr(config$conflict$end_date,   1, 4))
+  all_years <- seq(start_yr, end_yr)
 
   purrr::imap_dfr(config$country_mapping, function(country_cfg, country_key) {
-    tibble::tibble(
-      `Original variable name` = vars,
-      `SEPI Indicator ID` = paste(country_cfg$country_code, id_suffix, sep = "_"),
-      Pillar = "Conflict",
-      `Indicator name` = names_lbl,
-      Description = descr,
-      `Unit of measurement` = units,
-      `Data source` = "ACLED API",
-      `Source file or URL` = "https://acleddata.com/api/acled/read?_format=json",
-      `Data collection year` = "2025",
-      `Reference period` = paste0(
-        config$conflict$start_date,
-        " to ",
-        config$conflict$end_date
-      ),
-      `Geographic level` = "Admin 1",
-      `Indicator type` = "Output",
-      Directionality = "Higher = more deprived",
-      country = country_key,
-      country_code = country_cfg$country_code,
-      global_variable_name = vars,
-      build_rule = "acled_cy2025_aggregation"
-    )
+    purrr::map_dfr(all_years, function(yr) {
+      tibble::tibble(
+        `Original variable name` = c(
+          paste0("total_fatalities_",              yr),
+          paste0("count_conflict_events_",         yr),
+          paste0("total_fatalities_per_1k_",       yr),
+          paste0("count_conflicts_events_per_1k_", yr)
+        ),
+        `SEPI Indicator ID` = paste0(
+          country_cfg$country_code, "_",
+          c(
+            paste0("CFT_FAT_",   yr),
+            paste0("CFT_EVT_",   yr),
+            paste0("CFT_FAT1K_", yr),
+            paste0("CFT_EVT1K_", yr)
+          )
+        ),
+        Pillar = "Conflict",
+        `Indicator name` = c(
+          paste0("Total conflict fatalities (", yr, ")"),
+          paste0("Count of conflict events (",  yr, ")"),
+          paste0("Total conflict fatalities per 1,000 population (", yr, ")"),
+          paste0("Count of conflict events per 1,000 population (", yr, ")")
+        ),
+        Description = c(
+          paste0("Total ACLED fatalities aggregated at ADM1 for selected conflict event types (", yr, ")."),
+          paste0("Count of ACLED events (Battles, Explosions/Remote violence, Violence against civilians) aggregated at ADM1 (", yr, ")."),
+          paste0("Total ACLED fatalities aggregated at ADM1 and normalized per 1,000 population (", yr, ")."),
+          paste0("Count of ACLED events aggregated at ADM1 and normalized per 1,000 population (", yr, ").")
+        ),
+        `Unit of measurement` = c("count (deaths)", "count (events)", "count per 1,000", "count per 1,000"),
+        `Data source`          = "ACLED API",
+        `Source file or URL`   = "https://acleddata.com/api/acled/read?_format=json",
+        `Data collection year` = as.character(yr),
+        `Reference period`     = as.character(yr),
+        `Geographic level`     = "Admin 1",
+        `Indicator type`       = "Output",
+        Directionality         = "Higher = more deprived",
+        country                = country_key,
+        country_code           = country_cfg$country_code,
+        global_variable_name   = c(
+          paste0("total_fatalities_",              yr),
+          paste0("count_conflict_events_",         yr),
+          paste0("total_fatalities_per_1k_",       yr),
+          paste0("count_conflicts_events_per_1k_", yr)
+        ),
+        build_rule = paste0("acled_cy", yr, "_aggregation")
+      )
+    })
   })
 }
 
@@ -524,7 +578,8 @@ build_global_indicator_assets <- function(base_path = ".", config = MERGE_BUILD_
   indicators_merged <- merge_all_indicator_domains(
     se_base = dplyr::left_join(se_base, population, by = c("country", "adm1_pcode")),
     rs_latest = rs_latest,
-    conflict_data = conflict_out$data
+    conflict_data = conflict_out$data,
+    config = config
   )
 
   metadata_merged <- merge_all_metadata(
