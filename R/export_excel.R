@@ -30,6 +30,9 @@ export_sepi_excel <- function(sepi_results,
   build_indicator_details_sheet(wb, sepi_results, version, version$countries, header_style)
 
   # ---- Write ---------------------------------------------------------------
+  # openxlsx creates a temp subdirectory; recreate the base temp dir in case
+  # Windows has cleaned it up during the session (causes "No such file or directory")
+  dir.create(tempdir(), recursive = TRUE, showWarnings = FALSE)
   openxlsx::saveWorkbook(wb, fname, overwrite = TRUE)
   cat("Exported:", fname, "\n")
   invisible(fname)
@@ -298,11 +301,12 @@ build_indicator_details_sheet <- function(wb, sepi_results, version, config, hea
   detail_list <- list()
 
   if (isTRUE(version$conflict_weighting)) {
-    # V3: use se_vars, bad_vars, pillar_map, and effective weights from results
+    # V3: show all granular_vars; weights only for se_vars
     for (country in names(config)) {
-      cc        <- config[[country]]
-      se_vars   <- cc$se_vars
-      bad_vars  <- cc$bad_vars
+      cc         <- config[[country]]
+      all_vars   <- cc$granular_vars %||% cc$se_vars
+      se_vars    <- cc$se_vars
+      bad_vars   <- cc$bad_vars
       pillar_map <- cc$pillar_map
 
       # Build reverse pillar lookup: indicator -> pillar name
@@ -313,24 +317,26 @@ build_indicator_details_sheet <- function(wb, sepi_results, version, config, hea
         }
       }
 
-      # Try to get effective weights from computed results
+      # Effective weights only exist for se_vars
       eff_wts <- NULL
       if (!is.null(sepi_results[[country]])) {
         eff_wts <- attr(sepi_results[[country]], "v3_effective_weights")
       }
 
-      for (v in se_vars) {
-        polarity <- ifelse(v %in% bad_vars, -1, 1)
-        pillar   <- if (v %in% names(ind_to_pillar)) ind_to_pillar[v] else NA_character_
-        wt       <- if (!is.null(eff_wts) && v %in% names(eff_wts)) eff_wts[v] else NA_real_
+      for (v in all_vars) {
+        polarity  <- ifelse(v %in% bad_vars, -1, 1)
+        pillar    <- if (v %in% names(ind_to_pillar)) ind_to_pillar[v] else NA_character_
+        in_sepi   <- v %in% se_vars
+        wt        <- if (in_sepi && !is.null(eff_wts) && v %in% names(eff_wts)) eff_wts[v] else NA_real_
 
         detail_list[[length(detail_list) + 1]] <- tibble::tibble(
-          country   = country_label(country),
-          pillar    = pillar,
-          indicator = v,
-          polarity  = polarity,
-          label     = v,
-          weight    = wt
+          country      = country_label(country),
+          pillar       = pillar,
+          indicator    = v,
+          polarity     = polarity,
+          label        = v,
+          used_in_sepi = in_sepi,
+          weight       = wt
         )
       }
     }
