@@ -62,7 +62,7 @@ cat("\nDone.\n")
 # Tests H1: SEPI is negatively correlated with IDP displacement density
 # (pop_frac_idps) within each country. Uses Spearman's rho on within-country
 # min-max normalised displacement fractions to handle differing time windows.
-# Source data: data/criterion_validity_data.csv
+# Source data: data/socio-economic/criterion_validity_data.csv
 
 cat("\n========================================\n")
 cat(" Criterion Validity — IOM IDP Origin Data\n")
@@ -70,7 +70,7 @@ cat("========================================\n")
 cat(" H1: lower SEPI -> higher displacement density (rho < 0)\n")
 cat(" Target: rho < -0.6 (strong negative)\n\n")
 
-idp_raw <- read.csv("data/criterion_validity_data.csv", stringsAsFactors = FALSE)
+idp_raw <- read.csv("data/socio-economic/criterion_validity_data.csv", stringsAsFactors = FALSE)
 
 # Min-max normalise pop_frac_idps within each country
 idp_data <- idp_raw |>
