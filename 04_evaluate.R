@@ -32,23 +32,28 @@ sepi_results <- compute_all_countries(all_data, version)
 sensitivity_results <- sensitivity_all_countries(all_data, version)
 
 # ── B. Version comparison ─────────────────────────────────────────────────────
-# Compare SEPI ranks between v3_conflict_weighted (min-max), v3_zscore, and
-# v3_bod (Benefit of the Doubt weighting).
-# Each version is computed explicitly so results are independent of whatever
-# `version` is set to at the top of this script.
-results_v3_minmax <- compute_all_countries(all_data, VERSIONS$v3_conflict_weighted)
-results_v3_zscore <- compute_all_countries(all_data, VERSIONS$v3_zscore)
-results_v3_bod    <- compute_all_countries(all_data, VERSIONS$v3_bod)
+# Compare SEPI ranks between the active version and its robustness variants.
+# Variants are declared in each version's JSON as "robustness_variants".
+# Changing `version` at the top of this script automatically picks the right
+# robustness checks — no edits needed here.
 
-comparison <- compare_versions(list(
-  v3_minmax = results_v3_minmax,
-  v3_zscore = results_v3_zscore,
-  v3_bod    = results_v3_bod
-))
+variant_keys <- c(version$name, version$robustness_variants)
 
-for (country in names(comparison)) {
-  cat("\n", country_label(country), "— Rank correlations:\n")
-  print(round(comparison[[country]]$rank_correlation, 3))
+if (length(variant_keys) < 2) {
+  cat("No robustness_variants defined for", version$name, "— skipping comparison.\n")
+} else {
+  variant_results <- lapply(rlang::set_names(variant_keys), function(vname) {
+    vobj <- VERSIONS[[vname]]
+    if (is.null(vobj)) stop("Version '", vname, "' not found in VERSIONS.")
+    compute_all_countries(all_data, vobj)
+  })
+
+  comparison <- compare_versions(variant_results)
+
+  for (country in names(comparison)) {
+    cat("\n", country_label(country), "— Rank correlations:\n")
+    print(round(comparison[[country]]$rank_correlation, 3))
+  }
 }
 
 cat("\nDone.\n")

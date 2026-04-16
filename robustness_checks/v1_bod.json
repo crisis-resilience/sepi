@@ -1,0 +1,57 @@
+{
+  "name": "v1_bod",
+  "description": "Robustness check: v1 indicators with Benefit of the Doubt (BoD/DEA) weighting instead of equal weights",
+  "methodology": {
+    "normalisation": "min_max",
+    "within_pillar_agg": "bod",
+    "across_pillar_agg": "none",
+    "weighting": "bod",
+    "bod_weighting": true,
+    "conflict_weighting": false,
+    "bod_weight_flex": 0.5
+  },
+  "countries": {
+    "kenya": {
+      "id_cols": ["adm1_pcode", "adm1_name"],
+      "population_col": "population_total",
+      "exclude_regions": [],
+      "imputation": "mean",
+      "pillar_map": {
+        "food_security": "nutrition",
+        "education":     "net_attendance_total",
+        "health":        "health_fac_per_10k_pop",
+        "economic":      "gcp_pc",
+        "climate":       "rs_ndvi"
+      },
+      "bad_vars": ["nutrition", "poverty_headcount_pct"]
+    },
+    "somalia": {
+      "id_cols": ["adm1_pcode", "adm1_name"],
+      "population_col": "population_total",
+      "exclude_regions": [],
+      "imputation": "mean",
+      "pillar_map": {
+        "food_security": "pop_frac_3plus",
+        "education":     "primary_school_net_attendance_total",
+        "health":        "health_fac_per_10k_pop",
+        "economic":      "poverty_headcount_pct",
+        "climate":       "rs_ndvi"
+      },
+      "bad_vars": ["pop_frac_3plus", "poverty_headcount_pct"]
+    },
+    "south_sudan": {
+      "id_cols": ["adm1_pcode", "adm1_name"],
+      "population_col": "population_total",
+      "exclude_regions": ["SS00"],
+      "imputation": "omit",
+      "pillar_map": {
+        "food_security": "pop_frac_3plus",
+        "education":     "enrollment_rate",
+        "health":        "health_fac_per_10k_pop",
+        "economic":      "poverty_headcount_pct",
+        "climate":       "rs_ndvi"
+      },
+      "bad_vars": ["pop_frac_3plus", "dropout_pct", "poverty_headcount_pct"]
+    }
+  }
+}

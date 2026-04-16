@@ -99,9 +99,11 @@ VERSIONS <- local({
     # Flatten methodology fields to top level for compatibility with compute_index.R
     v <- c(
       list(
-        name          = raw$name,
-        description   = raw$description,
-        pillar_weights = NULL   # only used by "custom" weighting (not in any current version)
+        name               = raw$name,
+        description        = raw$description,
+        pillar_weights     = NULL,   # only used by "custom" weighting (not in any current version)
+        robustness_variants = if (is.null(raw$robustness_variants)) character(0)
+                              else as.character(raw$robustness_variants)
       ),
       raw$methodology,
       list(countries = raw$countries)

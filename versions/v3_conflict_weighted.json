@@ -1,6 +1,7 @@
 {
   "name": "v3_conflict_weighted",
   "description": "Conflict-correlation weighted flat sum with country-specific indicator sets",
+  "robustness_variants": ["v3_zscore", "v3_bod"],
   "methodology": {
     "normalisation": "min_max",
     "within_pillar_agg": "conflict_weighted",
