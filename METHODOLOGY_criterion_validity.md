@@ -153,6 +153,6 @@ Hotspot is defined as an ADM1 unit with `pop_frac_idps` above the within-country
 
 The criterion validity analysis is implemented in `04_evaluate.R`:
 
-- **Section C** — Spearman rank correlation: loads `data/criterion_validity_data.csv`, performs within-country min-max normalisation, joins on `adm1_pcode`, and computes Spearman's ρ for each country using the SEPI version configured at the top of the script.
+- **Section C** — Spearman rank correlation: loads `data/socio-economic/criterion_validity_data.csv`, performs within-country min-max normalisation, joins on `adm1_pcode`, and computes Spearman's ρ for each country using the SEPI version configured at the top of the script.
 - **Section D** — ROC / hotspot test: binarises displacement density at the within-country median and computes AUC with 95% DeLong CI for countries with n ≥ 8 matched units.
 - **Section E** — Visualisations: produces and saves the scatter and ROC figures described above. Requires the `ggrepel` and `pROC` packages (auto-installed if absent).
