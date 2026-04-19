@@ -37,18 +37,18 @@ MIN_N_ROC        <- 8
 # v1 and v3 have different country configs (different indicator sets),
 # so each needs its own data load.
 cat("Loading data...\n")
-all_data_v1 <- load_all_data(version = VERSIONS$v1_equal_geometric)
-all_data_v3 <- load_all_data(version = VERSIONS$v3_conflict_weighted)
+all_data_v1 <- load_all_data(version = VERSIONS$v1_aligned_equal_geometric)
+all_data_v3 <- load_all_data(version = VERSIONS$v3_aligned_conflict_weighted)
 
 # ── Compute all six versions ───────────────────────────────────────────────────
 cat("Computing all versions...\n")
-results_v1        <- compute_all_countries(all_data_v1, VERSIONS$v1_equal_geometric)
-results_v1_zscore <- compute_all_countries(all_data_v1, VERSIONS$v1_zscore)
-results_v1_bod    <- compute_all_countries(all_data_v1, VERSIONS$v1_bod)
+results_v1        <- compute_all_countries(all_data_v1, VERSIONS$v1_aligned_equal_geometric)
+results_v1_zscore <- compute_all_countries(all_data_v1, VERSIONS$v1_aligned_zscore)
+results_v1_bod    <- compute_all_countries(all_data_v1, VERSIONS$v1_aligned_bod)
 
-results_v3        <- compute_all_countries(all_data_v3, VERSIONS$v3_conflict_weighted)
-results_v3_zscore <- compute_all_countries(all_data_v3, VERSIONS$v3_zscore)
-results_v3_bod    <- compute_all_countries(all_data_v3, VERSIONS$v3_bod)
+results_v3        <- compute_all_countries(all_data_v3, VERSIONS$v3_aligned_conflict_weighted)
+results_v3_zscore <- compute_all_countries(all_data_v3, VERSIONS$v3_aligned_zscore)
+results_v3_bod    <- compute_all_countries(all_data_v3, VERSIONS$v3_aligned_bod)
 cat("Done.\n\n")
 
 # ── IDP data (shared across B and C) ──────────────────────────────────────────
@@ -188,7 +188,7 @@ build_rank_table <- function(res_primary, res_zscore, res_bod, country) {
   make_r <- function(res) {
     res[[country]] |>
       dplyr::select(adm1_pcode, adm1_name, sepi) |>
-      dplyr::mutate(rank = rank(sepi, ties.method = "min"))   # 1 = worst-off
+      dplyr::mutate(rank = rank(-sepi, ties.method = "min"))   # 1 = best-off (highest SEPI)
   }
   df_p <- make_r(res_primary) |> dplyr::rename(sepi_p = sepi, rank_p = rank)
   df_z <- make_r(res_zscore)  |> dplyr::select(adm1_pcode, rank_z = rank)
@@ -197,10 +197,11 @@ build_rank_table <- function(res_primary, res_zscore, res_bod, country) {
   dplyr::left_join(df_p, df_z, by = "adm1_pcode") |>
     dplyr::left_join(df_b, by = "adm1_pcode")      |>
     dplyr::mutate(shift_z = rank_z - rank_p,
-                  shift_b = rank_b - rank_p)        |>
+                  shift_b = rank_b - rank_p,
+                  worst5  = rank_p >= (max(rank_p, na.rm = TRUE) - 4)) |>
     dplyr::arrange(rank_p)                          |>
     dplyr::select(adm1_name, sepi_p,
-                  rank_p, rank_z, shift_z, rank_b, shift_b)
+                  rank_p, rank_z, shift_z, rank_b, shift_b, worst5)
 }
 
 save_rank_table_png <- function(rt, title_str, primary_lbl, zscore_lbl, bod_lbl, fname) {
@@ -229,11 +230,12 @@ save_rank_table_png <- function(rt, title_str, primary_lbl, zscore_lbl, bod_lbl,
     # Bold the 5 worst-off rows (prime targeting targets)
     gt::tab_style(
       style     = gt::cell_text(weight = "bold"),
-      locations = gt::cells_body(rows = rank_p <= 5)
+      locations = gt::cells_body(rows = worst5)
     ) |>
     gt::tab_footnote(
-      footnote = "\u0394 = variant rank \u2212 primary rank. Positive = region moved up (looks better in variant); negative = moved down. Amber = |\u0394| \u2265 3. Bold rows = bottom-5 worst-off in primary version."
+      footnote = "\u0394 = variant rank \u2212 primary rank. Positive = region moved up (looks better in variant); negative = moved down. Amber = |\u0394| \u2265 3. Bold rows = bottom-5 worst-off in primary version. Rank 1 = highest SEPI (best-off)."
     ) |>
+    gt::cols_hide(columns = worst5) |>
     gt::tab_options(
       table.font.names             = "Arial",
       table.font.size              = 10,
@@ -704,7 +706,7 @@ cat("\nComparison complete.\n")
 # ============================================================================
 # For each country and each version family (v1 / v3):
 #   Region | SEPI | Primary Rank | Z-score Rank | Δ | BoD Rank | Δ
-#   Sorted by primary rank (rank 1 = worst-off).
+#   Sorted by primary rank (rank 1 = best-off, highest SEPI).
 #   Amber cells = |Δ| >= 3 (large enough to change a targeting decision).
 #   Bold rows   = bottom-5 worst-off in primary (most policy-relevant).
 #
@@ -715,13 +717,14 @@ cat("\n")
 cat(strrep("=", 72), "\n")
 cat(" E. Unit-Level Rank Tables — per country, per version family\n")
 cat(strrep("=", 72), "\n")
-cat(" Rank 1 = worst-off (lowest SEPI).  \u0394 = variant rank \u2212 primary rank.\n")
+cat(" Rank 1 = best-off (highest SEPI).  \u0394 = variant rank \u2212 primary rank.\n")
 cat(" Amber = |\u0394| >= 3.  Bold = bottom-5 worst-off in primary version.\n\n")
 
 for (country in countries) {
   cat(country_label(country), "— v1 family:\n")
   rt_v1 <- build_rank_table(results_v1, results_v1_zscore, results_v1_bod, country)
   print(as.data.frame(rt_v1) |>
+        dplyr::select(-worst5) |>
         dplyr::rename(Region = adm1_name, SEPI = sepi_p,
                       `v1 Rank` = rank_p, `z-score Rank` = rank_z, `Shift.z` = shift_z,
                       `BoD Rank` = rank_b, `Shift.b` = shift_b),
@@ -730,6 +733,7 @@ for (country in countries) {
   cat(country_label(country), "— v3 family:\n")
   rt_v3 <- build_rank_table(results_v3, results_v3_zscore, results_v3_bod, country)
   print(as.data.frame(rt_v3) |>
+        dplyr::select(-worst5) |>
         dplyr::rename(Region = adm1_name, SEPI = sepi_p,
                       `v3 Rank` = rank_p, `z-score Rank` = rank_z, `Shift.z` = shift_z,
                       `BoD Rank` = rank_b, `Shift.b` = shift_b),
