@@ -39,7 +39,8 @@ resolve_conflict_plot_var <- function(conflict_var, per_capita = TRUE) {
 # ---- 1. Rankings bar chart -------------------------------------------------
 
 plot_sepi_rankings <- function(sepi_result, country_name,
-                               version_name = NULL, save = TRUE) {
+                               version = NULL, version_name = NULL,
+                               save = TRUE) {
   label <- country_label(country_name)
   subtitle <- if (!is.null(version_name)) version_name else
     attr(sepi_result, "sepi_version")
@@ -62,8 +63,8 @@ plot_sepi_rankings <- function(sepi_result, country_name,
     theme_sepi()
 
   if (save) {
-    dir.create(file.path("outputs", "figures"), showWarnings = FALSE, recursive = TRUE)
-    fname <- file.path("outputs", "figures", paste0("rankings_", country_name, ".png"))
+    fname <- versioned_output_path(version, "figures", "rankings",
+                                   paste0("rankings_", country_name))
     ggsave(fname, p, width = 8, height = max(5, nrow(df) * 0.25 + 1), dpi = 150)
     message("Saved: ", fname)
   }
@@ -74,7 +75,7 @@ plot_sepi_rankings <- function(sepi_result, country_name,
 
 plot_pillar_heatmap <- function(sepi_result, country_name,
                                  country_config, conflict_data = NULL,
-                                 save = TRUE) {
+                                 version = NULL, save = TRUE) {
   label       <- country_label(country_name)
   # For v1/v2 use pillars definition; for v3 use pillar_* columns present in data
   if (!is.null(country_config$pillars)) {
@@ -120,9 +121,9 @@ plot_pillar_heatmap <- function(sepi_result, country_name,
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
 
   if (save) {
-    dir.create(file.path("outputs", "figures"), showWarnings = FALSE, recursive = TRUE)
     n_regions <- dplyr::n_distinct(df_long$adm1_name)
-    fname <- file.path("outputs", "figures", paste0("pillars_", country_name, ".png"))
+    fname <- versioned_output_path(version, "figures", "pillars",
+                                   paste0("pillars_", country_name))
     ggsave(fname, p, width = 7, height = max(5, n_regions * 0.25 + 1), dpi = 150)
     message("Saved: ", fname)
   }
@@ -133,7 +134,8 @@ plot_pillar_heatmap <- function(sepi_result, country_name,
 
 plot_sepi_vs_conflict <- function(conflict_result, country_name,
                                    conflict_var = "count_conflict_events_2025",
-                                   per_capita = TRUE, save = TRUE) {
+                                   per_capita = TRUE,
+                                   version = NULL, save = TRUE) {
   label <- country_label(country_name)
   data  <- conflict_result$data
 
@@ -176,8 +178,8 @@ plot_sepi_vs_conflict <- function(conflict_result, country_name,
     theme_sepi()
 
   if (save) {
-    dir.create(file.path("outputs", "figures"), showWarnings = FALSE, recursive = TRUE)
-    fname <- file.path("outputs", "figures", paste0("sepi_conflict_", country_name, ".png"))
+    fname <- versioned_output_path(version, "figures", "sepi_conflict",
+                                   paste0("sepi_conflict_", country_name))
     ggsave(fname, p, width = 8, height = 6, dpi = 150)
     message("Saved: ", fname)
   }
@@ -186,7 +188,8 @@ plot_sepi_vs_conflict <- function(conflict_result, country_name,
 
 # ---- 4. Version comparison: slope chart -----------------------------------
 
-plot_version_comparison <- function(comparison, country_name, save = TRUE) {
+plot_version_comparison <- function(comparison, country_name,
+                                    version = NULL, save = TRUE) {
   label  <- country_label(country_name)
   scores <- comparison[[country_name]]$scores
 
@@ -216,8 +219,8 @@ plot_version_comparison <- function(comparison, country_name, save = TRUE) {
     theme_sepi()
 
   if (save) {
-    dir.create(file.path("outputs", "figures"), showWarnings = FALSE, recursive = TRUE)
-    fname <- file.path("outputs", "figures", paste0("version_comparison_", country_name, ".png"))
+    fname <- versioned_output_path(version, "figures", "version_comparison",
+                                   paste0("version_comparison_", country_name))
     ggsave(fname, p, width = 8, height = 7, dpi = 150)
     message("Saved: ", fname)
   }
@@ -231,19 +234,23 @@ generate_all_plots <- function(sepi_results, conflict_results,
                                 gis_config = GIS_CONFIG) {
   for (country in names(sepi_results)) {
     country_config <- version$countries[[country]]
-    plot_sepi_rankings(sepi_results[[country]], country)
+    plot_sepi_rankings(sepi_results[[country]], country, version = version)
     plot_pillar_heatmap(sepi_results[[country]], country, country_config,
-                        conflict_data = conflict_results[[country]]$data)
-    plot_sepi_vs_conflict(conflict_results[[country]], country)
+                        conflict_data = conflict_results[[country]]$data,
+                        version       = version)
+    plot_sepi_vs_conflict(conflict_results[[country]], country,
+                          version = version)
 
     if (!is.null(gis_config[[country]])) {
       plot_sepi_map(sepi_results[[country]], country,
                    conflict_data = conflict_results[[country]]$data,
-                   gis_config    = gis_config)
+                   gis_config    = gis_config,
+                   version       = version)
       plot_pillar_maps(sepi_results[[country]], country,
                        country_config,
                        conflict_data = conflict_results[[country]]$data,
-                       gis_config    = gis_config)
+                       gis_config    = gis_config,
+                       version       = version)
     }
   }
 }
@@ -283,6 +290,7 @@ plot_sepi_map <- function(sepi_result, country_name,
                            conflict_data  = NULL,
                            conflict_trans = c("log1p", "none"),
                            gis_config     = GIS_CONFIG,
+                           version        = NULL,
                            save           = TRUE) {
   label          <- country_label(country_name)
   shp            <- load_adm1_sf(country_name, gis_config)
@@ -363,8 +371,8 @@ plot_sepi_map <- function(sepi_result, country_name,
   }
 
   if (save) {
-    dir.create(file.path("outputs", "maps"), showWarnings = FALSE, recursive = TRUE)
-    fname <- file.path("outputs", "maps", paste0("map_sepi_", country_name, ".png"))
+    fname <- versioned_output_path(version, "maps", "sepi",
+                                   paste0("map_sepi_", country_name))
     ggsave(fname, combined, width = 14, height = 7, dpi = 150)
     message("Saved: ", fname)
   }
@@ -382,6 +390,7 @@ plot_pillar_maps <- function(sepi_result, country_name, country_config,
                               conflict_data  = NULL,
                               conflict_trans = c("log1p", "none"),
                               gis_config     = GIS_CONFIG,
+                              version        = NULL,
                               save           = TRUE) {
   label          <- country_label(country_name)
   # For v1/v2 use pillars definition; for v3 use pillar_* columns present in data
@@ -465,8 +474,8 @@ plot_pillar_maps <- function(sepi_result, country_name, country_config,
     )
 
   if (save) {
-    dir.create(file.path("outputs", "maps"), showWarnings = FALSE, recursive = TRUE)
-    fname <- file.path("outputs", "maps", paste0("map_pillars_", country_name, ".png"))
+    fname <- versioned_output_path(version, "maps", "pillars",
+                                   paste0("map_pillars_", country_name))
     w <- ncol_wrap * 3.5
     h <- ceiling(n_panels / ncol_wrap) * 3.5 + 1
     ggsave(fname, combined, width = w, height = max(h, 5), dpi = 150)

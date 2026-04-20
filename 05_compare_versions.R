@@ -786,8 +786,7 @@ gt_tbl <- scorecard_long |>
   )
 
 # ── Save as PNG ────────────────────────────────────────────────────────────────
-dir.create(file.path("outputs", "figures"), showWarnings = FALSE, recursive = TRUE)
-png_path <- file.path("outputs", "figures", "version_comparison.png")
+png_path <- versioned_output_path(NULL, "figures", "compare_versions", "scorecard")
 gt::gtsave(gt_tbl, filename = png_path, zoom = 2, expand = 20)
 message("Saved: ", png_path)
 
@@ -838,8 +837,8 @@ for (country in countries) {
     primary_lbl = "v1 Rank",
     zscore_lbl  = "z-score Rank",
     bod_lbl     = "BoD Rank",
-    fname       = file.path("outputs", "figures",
-                            paste0("ranks_v1_", country, ".png"))
+    fname       = versioned_output_path(NULL, "figures", "compare_versions",
+                                        paste0("ranks_v1_", country))
   )
   save_rank_table_png(
     rt_v3,
@@ -847,9 +846,9 @@ for (country in countries) {
     primary_lbl = "v3 Rank",
     zscore_lbl  = "z-score Rank",
     bod_lbl     = "BoD Rank",
-    fname       = file.path("outputs", "figures",
-                            paste0("ranks_v3_", country, ".png"))
+    fname       = versioned_output_path(NULL, "figures", "compare_versions",
+                                        paste0("ranks_v3_", country))
   )
 }
 
-cat("\nAll outputs saved to outputs/figures/\n")
+cat("\nAll outputs saved to outputs/figures/compare_versions/\n")

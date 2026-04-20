@@ -252,13 +252,11 @@ for (country in names(sepi_results)) {
 cat("Discriminatory capacity check complete.\n")
 
 # ── E. Criterion Validity Visualisations (Displacement) ──────────────────────
-# Two figures saved to outputs/figures/:
-#   criterion_validity_scatter_displacement.png — SEPI vs displacement density
-#   criterion_validity_roc_displacement.png     — ROC curves for Kenya & South Sudan
+# Two figures saved to outputs/figures/criterion_validity/:
+#   criterion_validity_scatter_displacement_{version}.png — SEPI vs displacement density
+#   criterion_validity_roc_displacement_{version}.png     — ROC curves for Kenya & South Sudan
 
 source("R/visualise.R")
-
-dir.create(file.path("outputs", "figures"), showWarnings = FALSE, recursive = TRUE)
 
 country_code_map <- c(south_sudan = "SSD", kenya = "KEN", somalia = "SOM")
 
@@ -350,8 +348,10 @@ if (length(scatter_plots) > 0) {
       theme    = theme_sepi()
     )
 
-  scatter_path <- file.path("outputs", "figures",
-                             "criterion_validity_scatter_displacement.png")
+  scatter_path <- versioned_output_path(
+    version, "figures", "criterion_validity",
+    "criterion_validity_scatter_displacement"
+  )
   ggsave(scatter_path, combined_scatter, width = 15, height = 6, dpi = 150)
   message("Saved: ", scatter_path)
 }
@@ -422,8 +422,10 @@ if (length(roc_plots) > 0) {
       theme    = theme_sepi()
     )
 
-  roc_path <- file.path("outputs", "figures",
-                         "criterion_validity_roc_displacement.png")
+  roc_path <- versioned_output_path(
+    version, "figures", "criterion_validity",
+    "criterion_validity_roc_displacement"
+  )
   ggsave(roc_path, combined_roc,
          width = length(roc_plots) * 5.5, height = 5.5, dpi = 150)
   message("Saved: ", roc_path)
@@ -495,9 +497,8 @@ for (window in conflict_windows) {
     cat("\n")
   }
 
-  save_conflict_scatter(sepi_results, window, file.path("outputs", "figures"))
-  save_conflict_roc(sepi_results, window, file.path("outputs", "figures"),
-                    min_n = MIN_N_ROC)
+  save_conflict_scatter(sepi_results, window, version)
+  save_conflict_roc(sepi_results, window, version, min_n = MIN_N_ROC)
 }
 
 cat("\nConflict criterion validity check complete.\n")
