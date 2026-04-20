@@ -278,7 +278,7 @@ build_conflict_roc_panel <- function(country, merged, min_n = 8) {
 }
 
 #' Save a 3-panel scatter figure for a single window.
-save_conflict_scatter <- function(sepi_results, window, out_dir) {
+save_conflict_scatter <- function(sepi_results, window, version) {
   panels <- list()
   for (country in names(sepi_results)) {
     merged <- prepare_conflict_match(sepi_results[[country]], window)
@@ -295,8 +295,10 @@ save_conflict_scatter <- function(sepi_results, window, out_dir) {
       theme    = theme_sepi()
     )
 
-  path <- file.path(out_dir,
-                    sprintf("criterion_validity_scatter_conflict_%s.png", window))
+  path <- versioned_output_path(
+    version, "figures", "criterion_validity",
+    sprintf("criterion_validity_scatter_conflict_%s", window)
+  )
   ggplot2::ggsave(path, combined,
                   width = length(panels) * 5, height = 6, dpi = 150)
   message("Saved: ", path)
@@ -304,7 +306,7 @@ save_conflict_scatter <- function(sepi_results, window, out_dir) {
 }
 
 #' Save a ROC figure for a single window (panels per country with n >= min_n).
-save_conflict_roc <- function(sepi_results, window, out_dir, min_n = 8) {
+save_conflict_roc <- function(sepi_results, window, version, min_n = 8) {
   panels <- list()
   for (country in names(sepi_results)) {
     merged <- prepare_conflict_match(sepi_results[[country]], window)
@@ -321,8 +323,10 @@ save_conflict_roc <- function(sepi_results, window, out_dir, min_n = 8) {
       theme    = theme_sepi()
     )
 
-  path <- file.path(out_dir,
-                    sprintf("criterion_validity_roc_conflict_%s.png", window))
+  path <- versioned_output_path(
+    version, "figures", "criterion_validity",
+    sprintf("criterion_validity_roc_conflict_%s", window)
+  )
   ggplot2::ggsave(path, combined,
                   width = length(panels) * 5.5, height = 5.5, dpi = 150)
   message("Saved: ", path)

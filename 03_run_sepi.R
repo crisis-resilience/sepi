@@ -32,7 +32,7 @@ generate_all_plots(sepi_results, conflict_results, version)
 export_sepi_excel(sepi_results, version)
 
 if (isTRUE(version$conflict_weighting)) {
-  render_polarity_audits(sepi_results)
+  render_polarity_audits(sepi_results, version)
 }
 
 cat("\nDone. Output: outputs/sepi_results_", version$name, ".xlsx\n", sep = "")

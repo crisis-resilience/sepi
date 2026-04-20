@@ -282,13 +282,13 @@ render_polarity_audit_png <- function(audit,
 #' Loops over a sepi_results list and writes one PNG per country whose
 #' data frame carries a "v3_polarity_audit" attribute.  Non-v3 countries
 #' are silently skipped.
-render_polarity_audits <- function(sepi_results,
-                                   out_dir = file.path("outputs", "figures")) {
+render_polarity_audits <- function(sepi_results, version) {
   for (country in names(sepi_results)) {
     audit <- attr(sepi_results[[country]], "v3_polarity_audit")
     if (is.null(audit)) next
 
-    out_path <- file.path(out_dir, paste0("polarity_audit_", country, ".png"))
+    out_path <- versioned_output_path(version, "figures", "polarity_audit",
+                                      paste0("polarity_audit_", country))
     render_polarity_audit_png(
       audit             = audit,
       country_label_str = country_label(country),

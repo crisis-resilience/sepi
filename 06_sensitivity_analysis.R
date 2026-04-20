@@ -15,9 +15,10 @@
 #   V1 = v1_aligned_equal_geometric  (equal weights, geometric across pillars, aligned indicators)
 #   V3 = v3_aligned_conflict_weighted (conflict-correlation weighted flat sum, aligned indicators)
 #
-# Outputs (in outputs/):
-#   sensitivity_analysis_comparison.xlsx  — scores + ranks for all countries
-#   sensitivity_comparison_<country>.png  — formatted gt table per country
+# Outputs:
+#   outputs/sensitivity_analysis_comparison.xlsx         — scores + ranks for all countries
+#   outputs/figures/sensitivity/sensitivity_comparison_<country>.png
+#                                                        — formatted gt table per country
 # ============================================================================
 
 for (pkg in c("tidyverse", "psych", "openxlsx", "purrr", "rlang",
@@ -76,13 +77,14 @@ cat("\n=== Rendering PNG comparison tables ===\n")
 for (country in names(comparison)) {
   n_sa1_v1 <- sa_v1[[country]]$sa1_n_combos[1]
   n_sa1_v3 <- sa_v3[[country]]$sa1_n_combos[1]
-  out_png   <- file.path("outputs", paste0("sensitivity_comparison_", country, ".png"))
+  out_png   <- versioned_output_path(NULL, "figures", "sensitivity",
+                                     paste0("sensitivity_comparison_", country))
   render_comparison_png(comparison[[country]], country, n_sa1_v1, n_sa1_v3, out_png)
 }
 
 cat("\nDone.\n")
-cat("Outputs in outputs/:\n")
-cat("  sensitivity_analysis_comparison.xlsx\n")
+cat("Outputs:\n")
+cat("  outputs/sensitivity_analysis_comparison.xlsx\n")
 for (country in names(comparison)) {
-  cat("  sensitivity_comparison_", country, ".png\n", sep = "")
+  cat("  outputs/figures/sensitivity/sensitivity_comparison_", country, ".png\n", sep = "")
 }

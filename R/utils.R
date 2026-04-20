@@ -38,6 +38,22 @@ missingness_report <- function(data, indicators) {
   )
 }
 
+# ---- Output path helpers ---------------------------------------------------
+
+# Build a versioned output path under outputs/{category}/{subdir}/ and ensure
+# the directory exists. Filenames are suffixed with the version name so reruns
+# of different versions do not overwrite each other.
+#
+# For cross-version outputs (e.g. comparators that operate on several versions
+# at once), pass version = NULL to omit the suffix; the subdir still provides
+# grouping.
+versioned_output_path <- function(version, category, subdir, base_name, ext = "png") {
+  dir <- file.path("outputs", category, subdir)
+  dir.create(dir, showWarnings = FALSE, recursive = TRUE)
+  suffix <- if (is.null(version)) "" else paste0("_", version$name)
+  file.path(dir, sprintf("%s%s.%s", base_name, suffix, ext))
+}
+
 # ---- Pretty helpers --------------------------------------------------------
 
 pillar_label <- function(name) {
