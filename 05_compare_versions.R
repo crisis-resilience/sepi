@@ -28,6 +28,7 @@ source("R/utils.R")
 source("R/load_data.R")
 source("R/normalise.R")
 source("R/compute_index.R")
+source("R/criterion_validity_conflict.R")
 
 country_code_map <- c(south_sudan = "SSD", kenya = "KEN", somalia = "SOM")
 countries        <- c("kenya", "somalia", "south_sudan")
@@ -65,20 +66,57 @@ idp_data <- idp_raw |>
 # ============================================================================
 # Helper functions
 # ============================================================================
+# Criterion-validity helpers are criterion-agnostic: they take a `criterion_fn`
+# that, given a country's SEPI data frame, returns a data frame with columns
+#   adm1_pcode        : join key
+#   criterion_value   : raw criterion value (used for hotspot thresholding)
+#   criterion_norm    : within-country min-max normalised criterion (Spearman)
+# Two concrete criterion sources are provided below: displacement (IDP origin
+# density) and conflict (ACLED events per 1k, summed over a time window).
 
-criterion_validity <- function(sepi_results, country) {
-  sepi_df     <- sepi_results[[country]]
-  cc          <- country_code_map[[country]]
-  idp_country <- dplyr::filter(idp_data, country_code == cc)
+idp_criterion_fn <- function(country) {
+  function(sepi_df) {
+    cc <- country_code_map[[country]]
+    idp_country <- dplyr::filter(idp_data, country_code == cc)
+    if (nrow(idp_country) == 0) {
+      return(tibble::tibble(adm1_pcode      = character(),
+                            criterion_value = numeric(),
+                            criterion_norm  = numeric()))
+    }
+    tibble::tibble(
+      adm1_pcode      = as.character(idp_country$adm1_pcode),
+      criterion_value = idp_country$pop_frac_idps,
+      criterion_norm  = idp_country$pop_frac_norm
+    )
+  }
+}
 
-  if (nrow(idp_country) == 0 || is.null(sepi_df)) {
-    return(list(rho = NA_real_, p = NA_real_, n = 0L,
-                verdict = "no data"))
+conflict_criterion_fn <- function(window) {
+  function(sepi_df) {
+    years <- conflict_window_years(window)
+    c_df  <- build_conflict_criterion(sepi_df, years)
+    tibble::tibble(
+      adm1_pcode      = c_df$adm1_pcode,
+      criterion_value = c_df$conflict_per_1k,
+      criterion_norm  = c_df$conflict_norm
+    )
+  }
+}
+
+criterion_validity <- function(sepi_results, country, criterion_fn) {
+  sepi_df <- sepi_results[[country]]
+  if (is.null(sepi_df)) {
+    return(list(rho = NA_real_, p = NA_real_, n = 0L, verdict = "no data"))
+  }
+
+  criterion <- criterion_fn(sepi_df)
+  if (nrow(criterion) == 0) {
+    return(list(rho = NA_real_, p = NA_real_, n = 0L, verdict = "no data"))
   }
 
   merged <- dplyr::inner_join(
     dplyr::select(sepi_df, adm1_pcode, sepi),
-    dplyr::select(idp_country, adm1_pcode, pop_frac_norm),
+    dplyr::select(criterion, adm1_pcode, criterion_norm),
     by = "adm1_pcode"
   )
 
@@ -87,9 +125,9 @@ criterion_validity <- function(sepi_results, country) {
                 verdict = "insufficient data"))
   }
 
-  rho   <- stats::cor(merged$sepi, merged$pop_frac_norm,
+  rho   <- stats::cor(merged$sepi, merged$criterion_norm,
                       method = "spearman", use = "complete.obs")
-  p_val <- stats::cor.test(merged$sepi, merged$pop_frac_norm,
+  p_val <- stats::cor.test(merged$sepi, merged$criterion_norm,
                             method = "spearman", exact = FALSE)$p.value
 
   verdict <- if (is.na(rho))      "insufficient data"
@@ -100,19 +138,22 @@ criterion_validity <- function(sepi_results, country) {
   list(rho = rho, p = p_val, n = nrow(merged), verdict = verdict)
 }
 
-auc_capacity <- function(sepi_results, country) {
-  sepi_df     <- sepi_results[[country]]
-  cc          <- country_code_map[[country]]
-  idp_country <- dplyr::filter(idp_data, country_code == cc)
+auc_capacity <- function(sepi_results, country, criterion_fn) {
+  sepi_df <- sepi_results[[country]]
+  if (is.null(sepi_df)) {
+    return(list(auc = NA_real_, ci_lo = NA_real_, ci_hi = NA_real_,
+                n = 0L, verdict = "no data"))
+  }
 
-  if (nrow(idp_country) == 0 || is.null(sepi_df)) {
+  criterion <- criterion_fn(sepi_df)
+  if (nrow(criterion) == 0) {
     return(list(auc = NA_real_, ci_lo = NA_real_, ci_hi = NA_real_,
                 n = 0L, verdict = "no data"))
   }
 
   merged <- dplyr::inner_join(
     dplyr::select(sepi_df, adm1_pcode, sepi),
-    dplyr::select(idp_country, adm1_pcode, pop_frac_idps),
+    dplyr::select(criterion, adm1_pcode, criterion_value),
     by = "adm1_pcode"
   )
 
@@ -122,8 +163,8 @@ auc_capacity <- function(sepi_results, country) {
                 n = n_matched, verdict = "too few units"))
   }
 
-  threshold      <- median(merged$pop_frac_idps)
-  merged$hotspot <- as.integer(merged$pop_frac_idps > threshold)
+  threshold      <- median(merged$criterion_value)
+  merged$hotspot <- as.integer(merged$criterion_value > threshold)
   n_hotspot      <- sum(merged$hotspot)
 
   if (n_hotspot < 2 || n_hotspot > (n_matched - 2)) {
@@ -145,6 +186,23 @@ auc_capacity <- function(sepi_results, country) {
   list(auc = auc_val, ci_lo = ci_vals[1], ci_hi = ci_vals[3],
        n = n_matched, verdict = verdict)
 }
+
+# Registry of all criterion sources used in the scorecard.
+# Order controls the row-group order inside the PNG.
+CRITERION_SOURCES <- list(
+  displacement   = list(label = "Displacement",
+                        fn_builder = idp_criterion_fn,
+                        needs_country = TRUE),
+  conflict_10y   = list(label = "Conflict (2016\u20132025)",
+                        fn_builder = function(country) conflict_criterion_fn("10y"),
+                        needs_country = FALSE),
+  conflict_5y    = list(label = "Conflict (2021\u20132025)",
+                        fn_builder = function(country) conflict_criterion_fn("5y"),
+                        needs_country = FALSE),
+  conflict_2025  = list(label = "Conflict (2025)",
+                        fn_builder = function(country) conflict_criterion_fn("2025"),
+                        needs_country = FALSE)
+)
 
 # ── MARS: Mean Absolute Rank Shift ─────────────────────────────────────────────
 # rank 1 = worst-off (lowest SEPI).  MARS = mean(|rank_primary - rank_variant|).
@@ -407,93 +465,113 @@ mars_tbl <- dplyr::bind_rows(mars_rows)
 topk_tbl <- dplyr::bind_rows(topk_rows)
 
 # ============================================================================
-# B. Criterion Validity
+# B. Criterion Validity — 4 sources: displacement + conflict (10y / 5y / 2025)
 # ============================================================================
 cat("\n========================================\n")
-cat(" B. Criterion Validity — IDP Correlation\n")
+cat(" B. Criterion Validity\n")
 cat("========================================\n")
-cat(" H1: lower SEPI -> higher displacement density (rho < 0)\n")
-cat(" Target: rho < -0.6 (strong negative)\n\n")
+cat(" H1: lower SEPI -> higher criterion (rho < 0)\n")
+cat(" Target: rho < -0.6 (strong negative)\n")
+cat(" Sources: IDP displacement, ACLED conflict (10y / 5y / 2025)\n")
+cat(" Note: 2025 conflict is circular for v3_conflict_weighted\n\n")
 
-cv_rows <- list()
+cv_tables <- list()
 
-for (country in countries) {
-  cv_v1 <- criterion_validity(results_v1, country)
-  cv_v3 <- criterion_validity(results_v3, country)
+for (src_key in names(CRITERION_SOURCES)) {
+  src <- CRITERION_SOURCES[[src_key]]
+  cat("---- ", src$label, " ----\n", sep = "")
 
-  cv_rows[[country]] <- data.frame(
-    country    = country_label(country),
-    v1_rho     = round(cv_v1$rho, 3),
-    v1_p       = round(cv_v1$p, 3),
-    v1_n       = cv_v1$n,
-    v1_verdict = cv_v1$verdict,
-    v3_rho     = round(cv_v3$rho, 3),
-    v3_p       = round(cv_v3$p, 3),
-    v3_n       = cv_v3$n,
-    v3_verdict = cv_v3$verdict,
-    stringsAsFactors = FALSE
-  )
+  rows <- list()
+  for (country in countries) {
+    fn    <- src$fn_builder(country)
+    cv_v1 <- criterion_validity(results_v1, country, fn)
+    cv_v3 <- criterion_validity(results_v3, country, fn)
 
-  cat(country_label(country), "\n")
-  cat(sprintf("  v1: rho = %6.3f  p = %.3f  n = %d  [%s]\n",
-              cv_v1$rho, cv_v1$p, cv_v1$n, cv_v1$verdict))
-  cat(sprintf("  v3: rho = %6.3f  p = %.3f  n = %d  [%s]\n\n",
-              cv_v3$rho, cv_v3$p, cv_v3$n, cv_v3$verdict))
+    rows[[country]] <- data.frame(
+      country    = country_label(country),
+      v1_rho     = round(cv_v1$rho, 3),
+      v1_p       = round(cv_v1$p, 3),
+      v1_n       = cv_v1$n,
+      v1_verdict = cv_v1$verdict,
+      v3_rho     = round(cv_v3$rho, 3),
+      v3_p       = round(cv_v3$p, 3),
+      v3_n       = cv_v3$n,
+      v3_verdict = cv_v3$verdict,
+      stringsAsFactors = FALSE
+    )
+
+    cat(country_label(country), "\n")
+    cat(sprintf("  v1: rho = %6.3f  p = %.3f  n = %d  [%s]\n",
+                cv_v1$rho, cv_v1$p, cv_v1$n, cv_v1$verdict))
+    cat(sprintf("  v3: rho = %6.3f  p = %.3f  n = %d  [%s]\n",
+                cv_v3$rho, cv_v3$p, cv_v3$n, cv_v3$verdict))
+  }
+  cat("\n")
+  cv_tables[[src_key]] <- dplyr::bind_rows(rows)
 }
 
-cv_tbl <- dplyr::bind_rows(cv_rows)
-
 # ============================================================================
-# C. Discriminatory Capacity (AUC)
+# C. Discriminatory Capacity (AUC) — same 4 criterion sources
 # ============================================================================
 cat("\n========================================\n")
 cat(" C. Discriminatory Capacity — AUC\n")
 cat("========================================\n")
-cat(" Hotspot = ADM1 above median IDP displacement density\n")
+cat(" Hotspot = ADM1 above within-country median of criterion\n")
 cat(" Lower SEPI -> higher P(hotspot); AUC >= 0.70 acceptable\n\n")
 
-auc_rows <- list()
+auc_tables <- list()
 
-for (country in countries) {
-  auc_v1 <- auc_capacity(results_v1, country)
-  auc_v3 <- auc_capacity(results_v3, country)
+for (src_key in names(CRITERION_SOURCES)) {
+  src <- CRITERION_SOURCES[[src_key]]
+  cat("---- ", src$label, " ----\n", sep = "")
 
-  v1_ci_str <- if (!is.na(auc_v1$auc))
-                 sprintf("%.3f-%.3f", auc_v1$ci_lo, auc_v1$ci_hi) else "—"
-  v3_ci_str <- if (!is.na(auc_v3$auc))
-                 sprintf("%.3f-%.3f", auc_v3$ci_lo, auc_v3$ci_hi) else "—"
+  rows <- list()
+  for (country in countries) {
+    fn     <- src$fn_builder(country)
+    auc_v1 <- auc_capacity(results_v1, country, fn)
+    auc_v3 <- auc_capacity(results_v3, country, fn)
 
-  auc_rows[[country]] <- data.frame(
-    country    = country_label(country),
-    v1_auc     = round(auc_v1$auc, 3),
-    v1_ci      = v1_ci_str,
-    v1_n       = auc_v1$n,
-    v1_verdict = auc_v1$verdict,
-    v3_auc     = round(auc_v3$auc, 3),
-    v3_ci      = v3_ci_str,
-    v3_n       = auc_v3$n,
-    v3_verdict = auc_v3$verdict,
-    stringsAsFactors = FALSE
-  )
+    v1_ci_str <- if (!is.na(auc_v1$auc))
+                   sprintf("%.3f-%.3f", auc_v1$ci_lo, auc_v1$ci_hi) else "\u2014"
+    v3_ci_str <- if (!is.na(auc_v3$auc))
+                   sprintf("%.3f-%.3f", auc_v3$ci_lo, auc_v3$ci_hi) else "\u2014"
 
-  cat(country_label(country), "\n")
-  if (!is.na(auc_v1$auc)) {
-    cat(sprintf("  v1: AUC = %.3f  (95%% CI: %s)  n = %d  [%s]\n",
-                auc_v1$auc, v1_ci_str, auc_v1$n, auc_v1$verdict))
-  } else {
-    cat(sprintf("  v1: AUC = n/a  n = %d  [%s]\n",
-                auc_v1$n, auc_v1$verdict))
+    rows[[country]] <- data.frame(
+      country    = country_label(country),
+      v1_auc     = round(auc_v1$auc, 3),
+      v1_ci      = v1_ci_str,
+      v1_n       = auc_v1$n,
+      v1_verdict = auc_v1$verdict,
+      v3_auc     = round(auc_v3$auc, 3),
+      v3_ci      = v3_ci_str,
+      v3_n       = auc_v3$n,
+      v3_verdict = auc_v3$verdict,
+      stringsAsFactors = FALSE
+    )
+
+    cat(country_label(country), "\n")
+    if (!is.na(auc_v1$auc)) {
+      cat(sprintf("  v1: AUC = %.3f  (95%% CI: %s)  n = %d  [%s]\n",
+                  auc_v1$auc, v1_ci_str, auc_v1$n, auc_v1$verdict))
+    } else {
+      cat(sprintf("  v1: AUC = n/a  n = %d  [%s]\n",
+                  auc_v1$n, auc_v1$verdict))
+    }
+    if (!is.na(auc_v3$auc)) {
+      cat(sprintf("  v3: AUC = %.3f  (95%% CI: %s)  n = %d  [%s]\n",
+                  auc_v3$auc, v3_ci_str, auc_v3$n, auc_v3$verdict))
+    } else {
+      cat(sprintf("  v3: AUC = n/a  n = %d  [%s]\n",
+                  auc_v3$n, auc_v3$verdict))
+    }
   }
-  if (!is.na(auc_v3$auc)) {
-    cat(sprintf("  v3: AUC = %.3f  (95%% CI: %s)  n = %d  [%s]\n\n",
-                auc_v3$auc, v3_ci_str, auc_v3$n, auc_v3$verdict))
-  } else {
-    cat(sprintf("  v3: AUC = n/a  n = %d  [%s]\n\n",
-                auc_v3$n, auc_v3$verdict))
-  }
+  cat("\n")
+  auc_tables[[src_key]] <- dplyr::bind_rows(rows)
 }
 
-auc_tbl <- dplyr::bind_rows(auc_rows)
+# Preserve prior single-table names for any downstream references.
+cv_tbl  <- cv_tables$displacement
+auc_tbl <- auc_tables$displacement
 
 # ============================================================================
 # D. Summary Scorecard — PNG table
@@ -552,33 +630,39 @@ rank_rows <- stability_tbl |>
     stringsAsFactors = FALSE
   ))
 
-# Section 2: Criterion Validity
-cv_rows_gt <- cv_tbl |>
-  dplyr::transmute(
-    dimension  = "Criterion Validity",
-    country    = country,
-    v1_value   = v1_rho,
-    v1_detail  = sprintf("p = %.3f  |  n = %d", v1_p, v1_n),
-    v1_verdict = v1_verdict,
-    v3_value   = v3_rho,
-    v3_detail  = sprintf("p = %.3f  |  n = %d", v3_p, v3_n),
-    v3_verdict = v3_verdict
-  )
+# Section 2: Criterion Validity — one row group per criterion source
+cv_rows_gt <- purrr::imap_dfr(cv_tables, function(tbl, src_key) {
+  lbl <- CRITERION_SOURCES[[src_key]]$label
+  tbl |>
+    dplyr::transmute(
+      dimension  = paste0("Criterion Validity \u2014 ", lbl),
+      country    = country,
+      v1_value   = v1_rho,
+      v1_detail  = sprintf("p = %.3f  |  n = %d", v1_p, v1_n),
+      v1_verdict = v1_verdict,
+      v3_value   = v3_rho,
+      v3_detail  = sprintf("p = %.3f  |  n = %d", v3_p, v3_n),
+      v3_verdict = v3_verdict
+    )
+})
 
-# Section 3: AUC
-auc_rows_gt <- auc_tbl |>
-  dplyr::transmute(
-    dimension  = "Discriminatory Capacity (AUC)",
-    country    = country,
-    v1_value   = v1_auc,
-    v1_detail  = dplyr::if_else(!is.na(v1_auc),
-                   sprintf("95%% CI: %s  |  n = %d", v1_ci, v1_n), ""),
-    v1_verdict = v1_verdict,
-    v3_value   = v3_auc,
-    v3_detail  = dplyr::if_else(!is.na(v3_auc),
-                   sprintf("95%% CI: %s  |  n = %d", v3_ci, v3_n), ""),
-    v3_verdict = v3_verdict
-  )
+# Section 3: AUC — one row group per criterion source
+auc_rows_gt <- purrr::imap_dfr(auc_tables, function(tbl, src_key) {
+  lbl <- CRITERION_SOURCES[[src_key]]$label
+  tbl |>
+    dplyr::transmute(
+      dimension  = paste0("Discriminatory Capacity (AUC) \u2014 ", lbl),
+      country    = country,
+      v1_value   = v1_auc,
+      v1_detail  = dplyr::if_else(!is.na(v1_auc),
+                     sprintf("95%% CI: %s  |  n = %d", v1_ci, v1_n), ""),
+      v1_verdict = v1_verdict,
+      v3_value   = v3_auc,
+      v3_detail  = dplyr::if_else(!is.na(v3_auc),
+                     sprintf("95%% CI: %s  |  n = %d", v3_ci, v3_n), ""),
+      v3_verdict = v3_verdict
+    )
+})
 
 scorecard_long <- dplyr::bind_rows(rank_rows, mars_tbl, topk_tbl, cv_rows_gt, auc_rows_gt)
 
@@ -679,6 +763,14 @@ gt_tbl <- scorecard_long |>
   ) |>
   gt::tab_footnote(
     footnote = "Criterion validity: rho < -0.60 SUPPORTED; AUC >= 0.70 acceptable, >= 0.80 good"
+  ) |>
+  gt::tab_footnote(
+    footnote = paste(
+      "Conflict (2025) is circular for v3_conflict_weighted, which derives its",
+      "weights from 2025 ACLED indicators; read as a sanity check, not external validation.",
+      "Conflict (2021\u20132025) and Conflict (2016\u20132025) include 2025 and are therefore",
+      "partially endogenous for v3. v1 is independent of all conflict windows."
+    )
   ) |>
   gt::tab_options(
     table.font.names       = "Arial",

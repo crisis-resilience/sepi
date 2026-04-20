@@ -132,7 +132,170 @@ compute_conflict_weights <- function(data, se_vars, conflict_col, bad_vars) {
   signs <- ifelse(se_vars %in% bad_vars, -1, 1)
   effective <- signs * weight_mag
   names(effective) <- se_vars
+
+  # ---- Polarity audit: empirical r sign vs normative bad_vars sign ----------
+  # Normative sign comes from bad_vars (author's theory-driven polarity).
+  # Empirical sign comes from the Pearson correlation with conflict.
+  # Under "indicators that track conflict are worse for peacebuilding",
+  # the SEPI-direction implied by the data is the *opposite* sign of r:
+  #   r > 0 (indicator tracks conflict up)   -> data implies sign = -1
+  #   r < 0 (indicator tracks conflict down) -> data implies sign = +1
+  # Mismatches are only flagged when |r| >= MIN_ABS_R; near-zero correlations
+  # carry an arbitrary sign that is not informative.
+  MIN_ABS_R <- 0.10
+
+  empirical_sign    <- sign(cors)
+  data_implied_sign <- -empirical_sign
+
+  mismatch <- !is.na(cors) &
+              abs(cors) >= MIN_ABS_R &
+              data_implied_sign != signs
+
+  audit <- data.frame(
+    indicator         = se_vars,
+    correlation       = round(cors, 3),
+    empirical_sign    = empirical_sign,
+    in_bad_vars       = se_vars %in% bad_vars,
+    normative_sign    = as.integer(signs),
+    data_implied_sign = as.integer(data_implied_sign),
+    weight_magnitude  = round(weight_mag, 4),
+    effective_weight  = round(effective, 4),
+    mismatch          = mismatch,
+    stringsAsFactors  = FALSE
+  )
+  rownames(audit) <- NULL
+
+  attr(effective, "polarity_audit") <- audit
+  attr(effective, "polarity_audit_min_abs_r") <- MIN_ABS_R
   effective
+}
+
+# ---- V3 polarity-audit renderer --------------------------------------------
+
+#' Render the v3 polarity audit for one country as a PNG table
+#'
+#' Produces a gt-styled table that compares the empirical sign of each
+#' indicator's correlation with conflict against the normative polarity
+#' declared in bad_vars.  Rows are colour-coded:
+#'   - red    : MISMATCH (|r| >= min_abs_r and signs disagree)
+#'   - grey   : uninformative (|r| < min_abs_r)
+#'   - green  : consistent
+#'
+#' @param audit             Data frame returned by compute_conflict_weights()
+#'                          and stored as attr(sepi_results[[c]], "v3_polarity_audit").
+#' @param country_label_str Pretty country label for the title.
+#' @param min_abs_r         Threshold below which |r| is deemed uninformative.
+#' @param out_path          Destination PNG path.
+#' @return Invisibly returns the gt object.
+render_polarity_audit_png <- function(audit,
+                                      country_label_str,
+                                      min_abs_r = 0.10,
+                                      out_path) {
+  for (pkg in c("gt", "webshot2")) {
+    if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
+  }
+
+  if (is.null(audit) || nrow(audit) == 0) {
+    message("No polarity audit data for ", country_label_str, " — skipping PNG.")
+    return(invisible(NULL))
+  }
+
+  uninformative <- is.na(audit$correlation) | abs(audit$correlation) < min_abs_r
+  status <- ifelse(audit$mismatch, "MISMATCH",
+            ifelse(uninformative, "uninformative",
+                                  "consistent"))
+
+  fmt_sign <- function(x) {
+    ifelse(is.na(x), "\u2014",
+      ifelse(x > 0, "+", "\u2212"))
+  }
+
+  df <- data.frame(
+    Indicator         = audit$indicator,
+    r                 = audit$correlation,
+    `Data sign`       = fmt_sign(audit$data_implied_sign),
+    `bad_vars sign`   = fmt_sign(audit$normative_sign),
+    `|w|`             = audit$weight_magnitude,
+    `Effective w`     = audit$effective_weight,
+    Status            = status,
+    stringsAsFactors  = FALSE,
+    check.names       = FALSE
+  )
+
+  ord <- order(
+    factor(df$Status, levels = c("MISMATCH", "uninformative", "consistent")),
+    -abs(df$r)
+  )
+  df <- df[ord, , drop = FALSE]
+
+  n_total    <- nrow(df)
+  n_mismatch <- sum(df$Status == "MISMATCH")
+  n_uninf    <- sum(df$Status == "uninformative")
+
+  tbl <- gt::gt(df) |>
+    gt::tab_header(
+      title    = gt::md(paste0("**", country_label_str, " — v3 polarity audit**")),
+      subtitle = sprintf(
+        "%d / %d indicator(s) mismatched; %d uninformative (|r| < %.2f).",
+        n_mismatch, n_total, n_uninf, min_abs_r
+      )
+    ) |>
+    gt::fmt_number(columns = c("r", "|w|", "Effective w"), decimals = 3) |>
+    gt::sub_missing(missing_text = "\u2014") |>
+    gt::tab_style(
+      style     = list(gt::cell_fill(color = "#f8d7da"),
+                       gt::cell_text(weight = "bold")),
+      locations = gt::cells_body(rows = Status == "MISMATCH")
+    ) |>
+    gt::tab_style(
+      style     = gt::cell_fill(color = "#eeeeee"),
+      locations = gt::cells_body(rows = Status == "uninformative")
+    ) |>
+    gt::tab_style(
+      style     = gt::cell_fill(color = "#d4edda"),
+      locations = gt::cells_body(rows = Status == "consistent")
+    ) |>
+    gt::tab_footnote(
+      footnote = paste0(
+        "Data sign = -sign(r), the SEPI direction implied by the empirical ",
+        "correlation with conflict. bad_vars sign is the normative polarity ",
+        "applied in the index. MISMATCH = the two disagree and |r| \u2265 ",
+        min_abs_r, "."
+      )
+    ) |>
+    gt::tab_options(
+      table.font.names         = "Arial",
+      table.font.size          = 10,
+      heading.title.font.size  = 13,
+      column_labels.font.weight = "bold",
+      data_row.padding         = gt::px(4)
+    )
+
+  dir.create(dirname(out_path), showWarnings = FALSE, recursive = TRUE)
+  gt::gtsave(tbl, filename = out_path, zoom = 2, expand = 15)
+  message("Saved: ", out_path)
+  invisible(tbl)
+}
+
+#' Convenience wrapper: render polarity audit PNGs for every country
+#'
+#' Loops over a sepi_results list and writes one PNG per country whose
+#' data frame carries a "v3_polarity_audit" attribute.  Non-v3 countries
+#' are silently skipped.
+render_polarity_audits <- function(sepi_results,
+                                   out_dir = file.path("outputs", "figures")) {
+  for (country in names(sepi_results)) {
+    audit <- attr(sepi_results[[country]], "v3_polarity_audit")
+    if (is.null(audit)) next
+
+    out_path <- file.path(out_dir, paste0("polarity_audit_", country, ".png"))
+    render_polarity_audit_png(
+      audit             = audit,
+      country_label_str = country_label(country),
+      out_path          = out_path
+    )
+  }
+  invisible(NULL)
 }
 
 # ---- BoD (Benefit of the Doubt) weight computation -------------------------
@@ -257,6 +420,35 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
       bad_vars
     )
 
+    # 3b. Polarity audit — flag indicators where the empirical correlation
+    #     sign disagrees with the normative polarity set via bad_vars.
+    polarity_audit <- attr(eff_weights, "polarity_audit")
+    min_abs_r      <- attr(eff_weights, "polarity_audit_min_abs_r") %||% 0.10
+
+    if (!is.null(polarity_audit)) {
+      n_total    <- nrow(polarity_audit)
+      n_mismatch <- sum(polarity_audit$mismatch, na.rm = TRUE)
+
+      if (n_mismatch > 0) {
+        message("  [v3 polarity audit] ", n_mismatch, " / ", n_total,
+                " indicator(s) with empirical \u2260 normative polarity ",
+                "(|r| \u2265 ", min_abs_r, "):")
+        mm <- polarity_audit[polarity_audit$mismatch, , drop = FALSE]
+        for (i in seq_len(nrow(mm))) {
+          nsign <- if (mm$normative_sign[i] > 0) "+" else "-"
+          dsign <- if (mm$data_implied_sign[i] > 0) "+" else "-"
+          message(sprintf(
+            "    %-38s  r = %+.3f  data\u2192%s  bad_vars\u2192%s  |w| = %.3f",
+            mm$indicator[i], mm$correlation[i],
+            dsign, nsign, mm$weight_magnitude[i]
+          ))
+        }
+      } else {
+        message("  [v3 polarity audit] all ", n_total,
+                " indicator(s) consistent (or |r| < ", min_abs_r, ")")
+      }
+    }
+
     # 4. Compute sepi_raw = sum(norm_i * effective_weight_i)
     weight_cols <- paste0(names(eff_weights), "_norm")
     weight_cols <- weight_cols[weight_cols %in% names(data)]
@@ -316,6 +508,7 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
 
     # Store effective weights as an attribute for export
     attr(data, "v3_effective_weights") <- eff_weights
+    attr(data, "v3_polarity_audit")    <- polarity_audit
     attr(data, "sepi_version") <- version$name
 
     return(data)
