@@ -464,6 +464,16 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
     }
   }
 
+  # 3b. Apply pillar-level NA fill (version$pillar_na_fill = list(food_security = 0, ...))
+  if (!is.null(version$pillar_na_fill)) {
+    for (pname in names(version$pillar_na_fill)) {
+      col <- paste0("pillar_", pname)
+      if (col %in% names(data)) {
+        data[[col]][is.na(data[[col]])] <- version$pillar_na_fill[[pname]]
+      }
+    }
+  }
+
   # 4. Aggregate pillar scores into SEPI
   pillar_cols <- paste0("pillar_", pillar_names)
 

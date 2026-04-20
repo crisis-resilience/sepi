@@ -9,6 +9,7 @@
 # ---- Normalisation methods -------------------------------------------------
 
 normalise_min_max <- function(x) {
+  if (all(is.na(x))) return(rep(NA_real_, length(x)))
   rng <- range(x, na.rm = TRUE)
   if (rng[2] == rng[1]) return(rep(0.5, length(x)))
   (x - rng[1]) / (rng[2] - rng[1])

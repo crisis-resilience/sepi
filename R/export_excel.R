@@ -372,6 +372,20 @@ get_indicator_weights <- function(cc, version, sepi_result, sepi_vars) {
 
 build_indicator_details_sheet <- function(wb, sepi_results, version, config, header_style) {
 
+  # Build polarity lookup from metadata — ground truth for directionality.
+  # bad_vars serves a computational role (weight sign / data flip) and may be
+  # trimmed in some versions, so it is not reliable for display polarity.
+  polarity_lookup <- list()
+  meta_path <- GLOBAL_DATA$metadata_file
+  if (file.exists(meta_path)) {
+    meta <- utils::read.csv(meta_path, stringsAsFactors = FALSE, check.names = FALSE)
+    for (i in seq_len(nrow(meta))) {
+      key <- paste0(tolower(meta[["country"]][i]), ".", meta[["global_variable_name"]][i])
+      polarity_lookup[[key]] <-
+        if (grepl("more deprived", meta[["Directionality"]][i], ignore.case = TRUE)) -1L else 1L
+    }
+  }
+
   detail_list <- list()
 
   for (country in names(config)) {
@@ -383,11 +397,17 @@ build_indicator_details_sheet <- function(wb, sepi_results, version, config, hea
     weights       <- get_indicator_weights(cc, version, sepi_results[[country]], sepi_vars)
 
     for (v in all_vars) {
+      meta_key <- paste0(tolower(country), ".", v)
+      pol <- if (!is.null(polarity_lookup[[meta_key]])) {
+        polarity_lookup[[meta_key]]
+      } else {
+        ifelse(v %in% bad_vars, -1L, 1L)   # fallback: bad_vars for vars absent from metadata
+      }
       detail_list[[length(detail_list) + 1]] <- tibble::tibble(
         country      = country_label(country),
         pillar       = if (v %in% names(ind_to_pillar)) ind_to_pillar[[v]] else NA_character_,
         indicator    = v,
-        polarity     = ifelse(v %in% bad_vars, -1L, 1L),
+        polarity     = pol,
         label        = v,
         used_in_sepi = v %in% sepi_vars,
         weight       = if (v %in% names(weights)) weights[[v]] else NA_character_
