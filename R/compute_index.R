@@ -405,6 +405,14 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
 
   cfg <- cfg_resolved
 
+  # Fill pop_frac_3plus NAs with 0 before normalisation: NA means the county
+  # is not monitored by IPC because it has no acute food crisis, so 0 (no
+  # phase-3+ population) is the correct value, giving the best food security score.
+  all_indicators <- unlist(lapply(cfg$pillars, `[[`, "indicators"))
+  if ("pop_frac_3plus" %in% all_indicators && "pop_frac_3plus" %in% names(data)) {
+    data[["pop_frac_3plus"]][is.na(data[["pop_frac_3plus"]])] <- 0
+  }
+
   # 1. Normalise all indicators
   data <- normalise_country(data, cfg, version$normalisation)
 
