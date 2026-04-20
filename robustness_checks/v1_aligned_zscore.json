@@ -7,8 +7,7 @@
     "across_pillar_agg": "geometric",
     "weighting": "equal",
     "geometric_floor": 0.001,
-    "conflict_weighting": false,
-    "pillar_na_fill": {"food_security": 0}
+    "conflict_weighting": false
   },
   "countries": {
     "kenya": {
