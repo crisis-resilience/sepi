@@ -23,7 +23,7 @@ source("R/normalise.R")
 source("R/compute_index.R")
 
 # ── Configure + Load ──────────────────────────────────────────────────────────
-version      <- VERSIONS$v3_bod   # ← change to switch version under evaluation
+version      <- VERSIONS$v3_aligned_conflict_weighted   # ← change to switch version under evaluation
 all_data     <- load_all_data(version = version)
 sepi_results <- compute_all_countries(all_data, version)
 
@@ -251,10 +251,10 @@ for (country in names(sepi_results)) {
 
 cat("Discriminatory capacity check complete.\n")
 
-# ── E. Criterion Validity Visualisations ──────────────────────────────────────
+# ── E. Criterion Validity Visualisations (Displacement) ──────────────────────
 # Two figures saved to outputs/figures/:
-#   criterion_validity_scatter.png — SEPI vs displacement density per country
-#   criterion_validity_roc.png     — ROC curves for Kenya & South Sudan
+#   criterion_validity_scatter_displacement.png — SEPI vs displacement density
+#   criterion_validity_roc_displacement.png     — ROC curves for Kenya & South Sudan
 
 source("R/visualise.R")
 
@@ -350,7 +350,8 @@ if (length(scatter_plots) > 0) {
       theme    = theme_sepi()
     )
 
-  scatter_path <- file.path("outputs", "figures", "criterion_validity_scatter.png")
+  scatter_path <- file.path("outputs", "figures",
+                             "criterion_validity_scatter_displacement.png")
   ggsave(scatter_path, combined_scatter, width = 15, height = 6, dpi = 150)
   message("Saved: ", scatter_path)
 }
@@ -421,10 +422,82 @@ if (length(roc_plots) > 0) {
       theme    = theme_sepi()
     )
 
-  roc_path <- file.path("outputs", "figures", "criterion_validity_roc.png")
+  roc_path <- file.path("outputs", "figures",
+                         "criterion_validity_roc_displacement.png")
   ggsave(roc_path, combined_roc,
          width = length(roc_plots) * 5.5, height = 5.5, dpi = 150)
   message("Saved: ", roc_path)
 }
 
-cat("Visualisations complete.\n")
+cat("Displacement visualisations complete.\n")
+
+# ── F. Criterion Validity — ACLED Conflict Intensity ──────────────────────────
+# Parallel test using conflict events per 1k population (ACLED) as the
+# external criterion, over three time windows:
+#   "10y"  -> 2016–2025
+#   "5y"   -> 2021–2025
+#   "2025" -> 2025 only (circular for v3_conflict_weighted)
+# Produces 3 scatter PNGs and 3 ROC PNGs (one per window), mirroring Section E.
+
+source("R/criterion_validity_conflict.R")
+
+cat("\n========================================\n")
+cat(" Criterion Validity — ACLED Conflict Intensity\n")
+cat("========================================\n")
+cat(" H1: lower SEPI -> higher conflict events per 1k (rho < 0)\n")
+cat(" Target: rho < -0.6 (strong negative)\n")
+cat(" Note: 2025 window is circular for v3_conflict_weighted\n\n")
+
+conflict_windows <- c("10y", "5y", "2025")
+
+for (window in conflict_windows) {
+  cat("\n---- Window:", conflict_window_label(window), "----\n\n")
+
+  for (country in names(sepi_results)) {
+    sepi_df <- sepi_results[[country]]
+    merged  <- prepare_conflict_match(sepi_df, window)
+    n_matched <- nrow(merged)
+
+    if (n_matched < 3) {
+      cat(sprintf("  %s: %d matched units — skipping\n",
+                  country_label(country), n_matched))
+      next
+    }
+
+    cv  <- criterion_validity_conflict(sepi_results, country, window)
+    auc <- auc_capacity_conflict(sepi_results, country, window)
+
+    cat(sprintf("%s\n  Matched: %d / %d SEPI units\n  Spearman rho = %.3f  (p = %.3f)  [%s]\n",
+                country_label(country), n_matched, nrow(sepi_df),
+                cv$rho, cv$p, cv$verdict))
+    if (!is.na(auc$auc)) {
+      cat(sprintf("  AUC = %.3f  (95%% CI: %.3f\u2013%.3f)  [%s]\n",
+                  auc$auc, auc$ci_lo, auc$ci_hi, auc$verdict))
+    } else {
+      cat(sprintf("  AUC = n/a  [%s]\n", auc$verdict))
+    }
+
+    out_tbl <- merged |>
+      dplyr::left_join(
+        dplyr::select(sepi_df, adm1_pcode, sepi_rank),
+        by = "adm1_pcode"
+      ) |>
+      dplyr::arrange(sepi_rank) |>
+      dplyr::mutate(
+        sepi            = round(sepi, 3),
+        conflict_per_1k = round(conflict_per_1k, 4),
+        conflict_norm   = round(conflict_norm, 3),
+        hotspot         = ifelse(hotspot == 1, "YES", "no")
+      ) |>
+      dplyr::select(adm1_name, sepi_rank, sepi, conflict_per_1k, conflict_norm, hotspot)
+
+    print(as.data.frame(out_tbl), row.names = FALSE)
+    cat("\n")
+  }
+
+  save_conflict_scatter(sepi_results, window, file.path("outputs", "figures"))
+  save_conflict_roc(sepi_results, window, file.path("outputs", "figures"),
+                    min_n = MIN_N_ROC)
+}
+
+cat("\nConflict criterion validity check complete.\n")

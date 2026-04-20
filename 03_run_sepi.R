@@ -21,7 +21,7 @@ source("R/visualise.R")
 source("R/export_excel.R")
 
 # ── Configure ─────────────────────────────────────────────────────────────────
-version <- VERSIONS$v3_bod  # ← change to switch version
+version <- VERSIONS$v1_aligned_equal_geometric  # ← change to switch version
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 all_data         <- load_all_data(version = version)
@@ -30,5 +30,9 @@ conflict_results <- analyse_conflict_all(sepi_results, version)
 
 generate_all_plots(sepi_results, conflict_results, version)
 export_sepi_excel(sepi_results, version)
+
+if (isTRUE(version$conflict_weighting)) {
+  render_polarity_audits(sepi_results)
+}
 
 cat("\nDone. Output: outputs/sepi_results_", version$name, ".xlsx\n", sep = "")
