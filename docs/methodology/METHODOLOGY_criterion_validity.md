@@ -1,5 +1,15 @@
 # SEPI — Criterion Validity Assessment
-### External Criterion: IOM IDP Origin Data
+
+Two complementary external criteria are used to test whether SEPI scores correlate with outcomes the index should theoretically predict:
+
+1. **IOM IDP origin data** — displacement density at ADM1 level (primary test).
+2. **ACLED conflict intensity** — events per 1,000 population, aggregated over three time windows (2016–2025, 2021–2025, 2025).
+
+Each criterion is examined with a Spearman rank correlation (H₁: negative relationship) and a ROC/AUC hotspot test (discriminatory capacity). Results for both criteria feed the version-comparison scorecard in `outputs/figures/version_comparison.png`.
+
+---
+
+## External Criterion I: IOM IDP Origin Data
 
 ---
 
@@ -135,13 +145,13 @@ The directional signal within the matched units is partially consistent with the
 
 Two figures are produced by `04_evaluate.R` (Section E) and saved to `outputs/figures/`.
 
-### `criterion_validity_scatter.png` — SEPI vs Displacement Density
+### `criterion_validity_scatter_displacement.png` — SEPI vs Displacement Density
 
 A three-panel scatter plot, one panel per country. Each point represents a matched ADM1 unit, labelled by name. The x-axis shows the SEPI score (higher = better socio-economic conditions); the y-axis shows within-country min-max normalised displacement density. A linear regression line with 95% confidence band is overlaid to indicate the direction and strength of the relationship. Spearman ρ and the associated p-value are annotated in the top-right corner of each panel.
 
 The scatter plot is the primary visual companion to the Spearman results (Section C). It makes the individual unit-level fit visible — including outliers such as Western Equatoria (South Sudan) — which a summary statistic alone cannot convey.
 
-### `criterion_validity_roc.png` — ROC Curves (Discriminatory Capacity)
+### `criterion_validity_roc_displacement.png` — ROC Curves (Discriminatory Capacity)
 
 A panel of ROC curves, one per country with sufficient matched units (Kenya and South Sudan; Somalia is omitted as n = 6 falls below the minimum threshold of 8). Each curve plots sensitivity (true positive rate: correctly flagging hotspot regions) against 1 − specificity (false positive rate) across all possible SEPI classification thresholds. The shaded area under the curve represents the AUC. The dashed diagonal represents a random classifier (AUC = 0.5). The AUC value and its 95% DeLong confidence interval are annotated on each panel.
 
@@ -151,8 +161,88 @@ Hotspot is defined as an ADM1 unit with `pop_frac_idps` above the within-country
 
 ## Implementation
 
-The criterion validity analysis is implemented in `04_evaluate.R`:
+The displacement criterion analysis is implemented in `04_evaluate.R`:
 
 - **Section C** — Spearman rank correlation: loads `data/socio-economic/criterion_validity_data.csv`, performs within-country min-max normalisation, joins on `adm1_pcode`, and computes Spearman's ρ for each country using the SEPI version configured at the top of the script.
 - **Section D** — ROC / hotspot test: binarises displacement density at the within-country median and computes AUC with 95% DeLong CI for countries with n ≥ 8 matched units.
 - **Section E** — Visualisations: produces and saves the scatter and ROC figures described above. Requires the `ggrepel` and `pROC` packages (auto-installed if absent).
+
+---
+
+## External Criterion II: ACLED Conflict Intensity
+
+### Purpose
+
+A second, independent criterion is introduced: the intensity of armed conflict recorded by ACLED, measured as the number of conflict events per 1,000 population in each ADM1 unit. The rationale is the same as for the displacement test — a valid measure of peacebuilding-relevant socio-economic conditions should be negatively associated with the realised intensity of violent conflict — but conflict data has two advantages that make it a useful complement:
+
+1. **Broad coverage.** ACLED records every ADM1 unit covered by the SEPI, eliminating the coverage-sparsity problem that limited the Somalia displacement test (n = 6).
+2. **Temporal flexibility.** Event data exists yearly from 2016–2025, enabling the same hypothesis to be examined at different time horizons.
+
+### Hypothesis
+
+**H₁:** Within each country, SEPI scores are negatively correlated with conflict events per 1,000 population at the ADM1 level.
+
+**Logic:** Lower structural socio-economic performance should, on average, be associated with higher realised conflict intensity. Higher SEPI → better conditions → fewer conflict events per capita → negative correlation.
+
+### Criterion Variable
+
+**Producer:** ACLED (Armed Conflict Location & Event Data).
+
+**Variable:** `count_conflicts_events_per_1k` summed over the window (see below). Event types included: Battles, Explosions/Remote violence, Violence against civilians (configured in `MERGE_BUILD_CONFIG$conflict$event_types`).
+
+**Per-capita normalisation:** Using events per 1,000 population rather than raw counts controls for regional population differences and matches the treatment used for the displacement criterion.
+
+**Within-country min-max normalisation** of the summed per-capita value is applied for the scatter-plot y-axis. Spearman's ρ and the ROC/AUC threshold are rank-based, so this normalisation does not affect the statistical result — it is purely for visual comparability across countries.
+
+### Time Windows
+
+Three windows are tested in parallel:
+
+| Window key | Years | Purpose |
+|---|---|---|
+| `conflict_10y` | 2016–2025 | Longest available history; most inertia, closest to "structural" conflict intensity. |
+| `conflict_5y` | 2021–2025 | Medium-term — captures the recent intensity regime without deep historical signal. |
+| `conflict_2025` | 2025 only | Contemporaneous snapshot; highest sensitivity to current dynamics but also highest year-to-year noise. |
+
+Rank correlation is unaffected by whether per-capita values are summed or averaged across years (since population is fixed within ADM1 in the reference period), so summing is used for simplicity.
+
+### Endogeneity Caveat for v3
+
+`v3_conflict_weighted` derives its indicator weights from 2025 ACLED data. The conflict criterion tests therefore have three different interpretations for v3:
+
+- **2025 window:** fully circular — v3 is expected to perform well by construction. Reported only as a consistency check.
+- **5y and 10y windows:** partially endogenous (2025 is included in the sum), but the pre-2025 conflict history is independent of the v3 weighting scheme, so these remain informative — especially when v3 fails to dominate here despite the circularity.
+- **v1 and v2:** independent of all conflict windows. These are the clean tests.
+
+### Analytical Method
+
+For each window and each country the procedure mirrors Section C–D of the displacement criterion:
+
+1. Sum `count_conflicts_events_per_1k_YYYY` across the years in the window.
+2. Min-max normalise the summed value within country.
+3. Join to SEPI on `adm1_pcode`.
+4. Compute Spearman ρ and p-value against SEPI (asymptotic approximation).
+5. Define hotspot = ADM1 units with summed events per 1k above the within-country median; compute ROC and AUC (with 95% DeLong CI) using SEPI as the predictor (direction `>`, because lower SEPI should predict hotspot membership).
+
+Thresholds are identical to the displacement test: ρ < −0.6 is considered SUPPORTED; AUC ≥ 0.70 is acceptable, ≥ 0.80 is good.
+
+### Outputs
+
+Produced by Section F of `04_evaluate.R`, saved to `outputs/figures/`:
+
+- `criterion_validity_scatter_conflict_10y.png`
+- `criterion_validity_scatter_conflict_5y.png`
+- `criterion_validity_scatter_conflict_2025.png`
+- `criterion_validity_roc_conflict_10y.png`
+- `criterion_validity_roc_conflict_5y.png`
+- `criterion_validity_roc_conflict_2025.png`
+
+Together with the two displacement figures from Section E, the full set comprises 4 scatter and 4 ROC PNGs.
+
+The version-comparison scorecard (`outputs/figures/version_comparison.png`, produced by `05_compare_versions.R`) adds eight new row groups — one Criterion Validity and one Discriminatory Capacity block per criterion source.
+
+### Implementation
+
+- Shared helpers live in `R/criterion_validity_conflict.R` and are used by both `04_evaluate.R` (Section F) and `05_compare_versions.R`.
+- `04_evaluate.R` iterates over `c("10y", "5y", "2025")` for the version selected at the top of the script.
+- `05_compare_versions.R` uses a `CRITERION_SOURCES` registry that dispatches generic `criterion_validity()` and `auc_capacity()` helpers over displacement + three conflict windows for both v1 and v3.
