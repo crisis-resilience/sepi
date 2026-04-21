@@ -118,7 +118,7 @@
       "conflict_col": "count_conflicts_events_per_1k_2025",
       "imputation": "omit",
       "se_vars": [
-        "pop_frac_3plus", "gender_parity_index",
+        "pop_frac_3plus", "gender_parity_index", "school_access_pop",
         "poverty_headcount_pct", "annual_cmb_mean",
         "healthcare_access_pop",
         "rs_soil_moist", "rs_ndvi"
