@@ -65,6 +65,12 @@ country_label <- function(name) {
   unname(labels[name])
 }
 
+# ---- Shared constants ------------------------------------------------------
+
+COUNTRY_CODE_MAP <- c(south_sudan = "SSD", kenya = "KEN", somalia = "SOM")
+COUNTRIES        <- c("kenya", "somalia", "south_sudan")
+MIN_N_ROC        <- 8L
+
 # ---- Theme for plots -------------------------------------------------------
 
 theme_sepi <- function(base_size = 12) {

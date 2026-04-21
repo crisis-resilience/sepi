@@ -19,6 +19,143 @@
 # series directly.
 # ============================================================================
 
+# ---- IDP data loader -------------------------------------------------------
+
+#' Load and within-country normalise IDP displacement data.
+load_idp_data <- function(path = "data/socio-economic/criterion_validity_data.csv") {
+  idp_raw <- read.csv(path, stringsAsFactors = FALSE)
+  idp_raw |>
+    dplyr::group_by(country) |>
+    dplyr::mutate(
+      pop_frac_norm = (pop_frac_idps - min(pop_frac_idps)) /
+                     (max(pop_frac_idps) - min(pop_frac_idps))
+    ) |>
+    dplyr::ungroup()
+}
+
+# ---- Criterion function builders -------------------------------------------
+
+#' Returns a criterion_fn for IDP displacement for one country.
+idp_criterion_fn <- function(country, idp_data) {
+  cc <- COUNTRY_CODE_MAP[[country]]
+  function(sepi_df) {
+    idp_country <- dplyr::filter(idp_data, country_code == cc)
+    if (nrow(idp_country) == 0) {
+      return(tibble::tibble(adm1_pcode      = character(),
+                            criterion_value = numeric(),
+                            criterion_norm  = numeric()))
+    }
+    tibble::tibble(
+      adm1_pcode      = as.character(idp_country$adm1_pcode),
+      criterion_value = idp_country$pop_frac_idps,
+      criterion_norm  = idp_country$pop_frac_norm
+    )
+  }
+}
+
+#' Returns a criterion_fn for ACLED conflict events per 1k over a window.
+conflict_criterion_fn <- function(window) {
+  function(sepi_df) {
+    years <- conflict_window_years(window)
+    c_df  <- build_conflict_criterion(sepi_df, years)
+    tibble::tibble(
+      adm1_pcode      = c_df$adm1_pcode,
+      criterion_value = c_df$conflict_per_1k,
+      criterion_norm  = c_df$conflict_norm
+    )
+  }
+}
+
+# ---- Generic criterion validity helpers ------------------------------------
+
+#' Spearman rho between SEPI and any criterion (displacement or conflict).
+#'
+#' @param sepi_results Named list of per-country SEPI data frames.
+#' @param country      Country key (e.g. "kenya").
+#' @param criterion_fn Function that takes a SEPI data frame and returns a
+#'   tibble with columns adm1_pcode, criterion_norm.
+#' @return list(rho, p, n, verdict)
+criterion_validity <- function(sepi_results, country, criterion_fn) {
+  sepi_df <- sepi_results[[country]]
+  if (is.null(sepi_df))
+    return(list(rho = NA_real_, p = NA_real_, n = 0L, verdict = "no data"))
+
+  criterion <- criterion_fn(sepi_df)
+  if (nrow(criterion) == 0)
+    return(list(rho = NA_real_, p = NA_real_, n = 0L, verdict = "no data"))
+
+  merged <- dplyr::inner_join(
+    dplyr::select(sepi_df, adm1_pcode, sepi),
+    dplyr::select(criterion, adm1_pcode, criterion_norm),
+    by = "adm1_pcode"
+  )
+
+  if (nrow(merged) < 3)
+    return(list(rho = NA_real_, p = NA_real_, n = nrow(merged),
+                verdict = "insufficient data"))
+
+  rho   <- stats::cor(merged$sepi, merged$criterion_norm,
+                      method = "spearman", use = "complete.obs")
+  p_val <- stats::cor.test(merged$sepi, merged$criterion_norm,
+                            method = "spearman", exact = FALSE)$p.value
+
+  verdict <- if (is.na(rho))      "insufficient data"
+             else if (rho < -0.6) "SUPPORTED"
+             else if (rho < 0)    "weak negative"
+             else                 "NOT supported"
+
+  list(rho = rho, p = p_val, n = nrow(merged), verdict = verdict)
+}
+
+#' AUC for SEPI predicting hotspots defined by any criterion.
+#'
+#' @param criterion_fn Function returning tibble with adm1_pcode, criterion_value.
+#' @return list(auc, ci_lo, ci_hi, n, verdict)
+auc_capacity <- function(sepi_results, country, criterion_fn, min_n = MIN_N_ROC) {
+  sepi_df <- sepi_results[[country]]
+  if (is.null(sepi_df))
+    return(list(auc = NA_real_, ci_lo = NA_real_, ci_hi = NA_real_,
+                n = 0L, verdict = "no data"))
+
+  criterion <- criterion_fn(sepi_df)
+  if (nrow(criterion) == 0)
+    return(list(auc = NA_real_, ci_lo = NA_real_, ci_hi = NA_real_,
+                n = 0L, verdict = "no data"))
+
+  merged <- dplyr::inner_join(
+    dplyr::select(sepi_df, adm1_pcode, sepi),
+    dplyr::select(criterion, adm1_pcode, criterion_value),
+    by = "adm1_pcode"
+  )
+
+  n_matched <- nrow(merged)
+  if (n_matched < min_n)
+    return(list(auc = NA_real_, ci_lo = NA_real_, ci_hi = NA_real_,
+                n = n_matched, verdict = "too few units"))
+
+  threshold      <- stats::median(merged$criterion_value)
+  merged$hotspot <- as.integer(merged$criterion_value > threshold)
+  n_hotspot      <- sum(merged$hotspot)
+
+  if (n_hotspot < 2 || n_hotspot > (n_matched - 2))
+    return(list(auc = NA_real_, ci_lo = NA_real_, ci_hi = NA_real_,
+                n = n_matched, verdict = "class imbalance"))
+
+  roc_obj <- pROC::roc(merged$hotspot, merged$sepi,
+                        direction = ">", quiet = TRUE,
+                        ci = TRUE, ci.method = "delong")
+  auc_val <- as.numeric(pROC::auc(roc_obj))
+  ci_vals <- as.numeric(pROC::ci(roc_obj))
+
+  verdict <- if (auc_val >= 0.80)      "GOOD (>=0.80)"
+             else if (auc_val >= 0.70) "acceptable (>=0.70)"
+             else if (auc_val >= 0.60) "poor (0.60-0.70)"
+             else                      "no discrimination"
+
+  list(auc = auc_val, ci_lo = ci_vals[1], ci_hi = ci_vals[3],
+       n = n_matched, verdict = verdict)
+}
+
 # ---- Window resolver -------------------------------------------------------
 
 #' Resolve a conflict-window label to the vector of years it covers.
