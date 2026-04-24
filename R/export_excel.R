@@ -29,6 +29,12 @@ export_sepi_excel <- function(sepi_results,
   # ---- Sheet 4: Indicator_Details ------------------------------------------
   build_indicator_details_sheet(wb, sepi_results, version, version$countries, header_style)
 
+  # ---- Sheet 5: Conflict_Data -----------------------------------------------
+  build_conflict_data_sheet(wb, header_style)
+
+  # ---- Sheet 6: Pillar_Descriptions -----------------------------------------
+  build_pillar_descriptions_sheet(wb, header_style)
+
   # ---- Write ---------------------------------------------------------------
   # openxlsx creates a temp subdirectory; recreate the base temp dir in case
   # Windows has cleaned it up during the session (causes "No such file or directory")
@@ -277,12 +283,11 @@ build_indicator_scores_sheet <- function(wb, sepi_results, config, version, head
     cc <- config[[country]]
     id_cols <- cc$id_cols
 
-    if (!is.null(cc$granular_vars)) {
-      # Use granular_vars when defined — works for any version that sets them
-      norm_cols <- paste0(cc$granular_vars, "_norm")
+    sepi_vars <- get_sepi_vars(cc)
+    if (length(sepi_vars) > 0) {
+      norm_cols <- paste0(sepi_vars, "_norm")
       norm_cols <- norm_cols[norm_cols %in% names(res)]
     } else {
-      # Fallback: all _norm columns present in data (v1/v2)
       norm_cols <- grep("_norm$", names(res), value = TRUE)
     }
 
@@ -376,15 +381,31 @@ build_indicator_details_sheet <- function(wb, sepi_results, version, config, hea
   # bad_vars serves a computational role (weight sign / data flip) and may be
   # trimmed in some versions, so it is not reliable for display polarity.
   polarity_lookup <- list()
+  label_lookup    <- list()
   meta_path <- GLOBAL_DATA$metadata_file
   if (file.exists(meta_path)) {
     meta <- utils::read.csv(meta_path, stringsAsFactors = FALSE, check.names = FALSE)
     for (i in seq_len(nrow(meta))) {
-      key <- paste0(tolower(meta[["country"]][i]), ".", meta[["global_variable_name"]][i])
-      polarity_lookup[[key]] <-
-        if (grepl("more deprived", meta[["Directionality"]][i], ignore.case = TRUE)) -1L else 1L
+      raw_name <- meta[["global_variable_name"]][i]
+      pol <- if (grepl("more deprived", meta[["Directionality"]][i], ignore.case = TRUE)) -1L else 1L
+      ind_label <- meta[["Indicator name"]][i]
+      # Index under the literal name and a sanitised variant (e.g. "pop_frac_3+" -> "pop_frac_3plus")
+      for (nm in unique(c(raw_name, gsub("\\+", "plus", raw_name)))) {
+        key <- paste0(tolower(meta[["country"]][i]), ".", nm)
+        polarity_lookup[[key]] <- pol
+        label_lookup[[key]]    <- ind_label
+      }
     }
   }
+
+  climate_label_overrides <- c(
+    rs_pdsi        = "Palmer Drought Severity Index",
+    rs_ndvi        = "Normalized Difference Vegetation Index",
+    rs_fapar       = "Fraction of Absorbed Photosynthetically Active Radiation",
+    rs_soil_moist  = "Soil Moisture Anomaly",
+    pop_frac_3plus = "Fraction of population in IPC (Integrated Food Security Phase Classification) Phase 3 or higher",
+    annual_cmb_mean = "Average annual CMB (Cost of Minimum Expenditure Basket) cost"
+  )
 
   detail_list <- list()
 
@@ -408,7 +429,9 @@ build_indicator_details_sheet <- function(wb, sepi_results, version, config, hea
         pillar       = if (v %in% names(ind_to_pillar)) ind_to_pillar[[v]] else NA_character_,
         indicator    = v,
         polarity     = pol,
-        label        = v,
+        label        = if (!is.na(climate_label_overrides[v])) climate_label_overrides[v]
+                       else if (!is.null(label_lookup[[meta_key]])) label_lookup[[meta_key]]
+                       else v,
         used_in_sepi = v %in% sepi_vars,
         weight       = if (v %in% names(weights)) weights[[v]] else NA_character_
       )
@@ -421,4 +444,52 @@ build_indicator_details_sheet <- function(wb, sepi_results, version, config, hea
   openxlsx::writeData(wb, "Indicator_Details", rows, headerStyle = header_style)
   openxlsx::setColWidths(wb, "Indicator_Details",
                          cols = seq_len(ncol(rows)), widths = "auto")
+}
+
+build_pillar_descriptions_sheet <- function(wb, header_style) {
+  pillar_desc <- data.frame(
+    Pillar = c(
+      "Food Security",
+      "Education",
+      "Health",
+      "Income & Livelihoods",
+      "Climate"
+    ),
+    Description = c(
+      "Population-level food and nutrition adequacy",
+      "Access to and participation in education",
+      "Healthcare services availability based on facilities per population and density",
+      "Economic welfare per capita",
+      "Climate resilience based on temperature, vegetation change, and elevation factors"
+    ),
+    `Dashboard Pillar Name` = c(
+      "Food Security Index",
+      "Education Index",
+      "Health Access Index",
+      "Poverty Reduction Index",
+      "Climate Resilience Index"
+    ),
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  openxlsx::addWorksheet(wb, "Pillar_Descriptions")
+  openxlsx::writeData(wb, "Pillar_Descriptions", pillar_desc, headerStyle = header_style)
+  openxlsx::setColWidths(wb, "Pillar_Descriptions", cols = 1, widths = 25)
+  openxlsx::setColWidths(wb, "Pillar_Descriptions", cols = 2, widths = 80)
+}
+
+build_conflict_data_sheet <- function(wb, header_style) {
+  conflict_path <- "data/socio-economic/conflict.csv"
+  if (!file.exists(conflict_path)) {
+    warning("conflict.csv not found at '", conflict_path, "' — Conflict_Data sheet skipped.")
+    return(invisible(NULL))
+  }
+
+  conflict_data <- utils::read.csv(conflict_path, stringsAsFactors = FALSE, check.names = FALSE)
+
+  openxlsx::addWorksheet(wb, "Conflict_Data")
+  openxlsx::writeData(wb, "Conflict_Data", conflict_data, headerStyle = header_style)
+  openxlsx::setColWidths(wb, "Conflict_Data",
+                         cols = seq_len(ncol(conflict_data)), widths = "auto")
 }
