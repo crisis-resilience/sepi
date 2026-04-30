@@ -24,7 +24,7 @@ source("R/normalise.R")
 source("R/compute_index.R")
 
 # ── Configure + Load ──────────────────────────────────────────────────────────
-version      <- VERSIONS$v1_aligned_equal_geometric   # ← change to switch version under evaluation
+version      <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v1_aligned_equal_geometric  # ← change default to switch version under evaluation
 all_data     <- load_all_data(version = version)
 sepi_results <- compute_all_countries(all_data, version)
 

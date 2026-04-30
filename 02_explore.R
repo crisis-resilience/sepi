@@ -24,7 +24,7 @@ source("R/diagnostics.R")
 source("R/compute_index.R")
 
 # ── Configure ─────────────────────────────────────────────────────────────────
-version <- VERSIONS$v3_zscore   # ← change to switch version
+version <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v3_zscore  # ← change default to switch version
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 all_data <- load_all_data(version = version)

@@ -21,7 +21,7 @@ source("R/visualise.R")
 source("R/export_excel.R")
 
 # ── Configure ─────────────────────────────────────────────────────────────────
-version <- VERSIONS$v1_aligned_equal_geometric  # ← change to switch version
+version <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v1_aligned_equal_geometric  # ← change default to switch version
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 all_data         <- load_all_data(version = version)
