@@ -8,7 +8,7 @@
 #
 #   "10y"  -> 2016–2025   (full available history)
 #   "5y"   -> 2021–2025   (recent medium-term)
-#   "2025" -> 2025 only   (circular for v3_conflict_weighted; still reported
+#   "2025" -> 2025 only   (circular for v3_aligned_conflict_weighted; still reported
 #                          as a sanity check)
 #
 # Yearly per-capita event counts are already present in the merged country

@@ -6,7 +6,7 @@
 #
 # Set `version` below to control which pillar/indicator definitions are used
 # for screening and diagnostics.  Use a v1/v2 version for pillar-based checks;
-# use v3_conflict_weighted to audit its se_vars.
+# use v3_aligned_conflict_weighted to audit its se_vars.
 # ============================================================================
 
 for (pkg in c("tidyverse", "psych", "rvest", "caret", "jsonlite")) {
@@ -49,7 +49,7 @@ cat("\n--- Running internal diagnostics ---\n")
 diagnostics <- run_all_diagnostics(all_data, version)
 
 # ── D. [OPTIONAL] V3 indicator selection ──────────────────────────────────────
-# Run once, review output, then update se_vars in versions/v3_conflict_weighted.json.
+# Run once, review output, then update se_vars in versions/v3_aligned_conflict_weighted.json.
 # v3_selection <- select_v3_indicators(all_data, version)
 
 cat("\nDone.\n")

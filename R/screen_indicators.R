@@ -348,7 +348,7 @@ screen_all_countries <- function(all_data, version) {
 #' Select v3 indicators via multicollinearity + conflict-correlation analysis
 #'
 #' @param all_data  Named list of country data frames
-#' @param version   sepi_version object (v3_conflict_weighted or similar)
+#' @param version   sepi_version object (v3_aligned_conflict_weighted or similar)
 #' @param cutoff    Multicollinearity |r| cutoff (default 0.8)
 #'
 #' @return Named list of per-country data frames with columns:
