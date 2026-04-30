@@ -65,6 +65,56 @@ country_label <- function(name) {
   unname(labels[name])
 }
 
+# ---- Criterion validity helpers --------------------------------------------
+
+load_idp_data <- function(path = "data/socio-economic/criterion_validity_data.csv") {
+  idp_raw <- read.csv(path, stringsAsFactors = FALSE)
+  idp_raw |>
+    dplyr::group_by(country) |>
+    dplyr::mutate(
+      pop_frac_norm = (pop_frac_idps - min(pop_frac_idps)) /
+                     (max(pop_frac_idps) - min(pop_frac_idps))
+    ) |>
+    dplyr::ungroup()
+}
+
+spearman_cor <- function(x, y) {
+  rho   <- stats::cor(x, y, method = "spearman", use = "complete.obs")
+  p_val <- stats::cor.test(x, y, method = "spearman", exact = FALSE)$p.value
+  list(rho = rho, p = p_val)
+}
+
+spearman_verdict <- function(rho) {
+  if (is.na(rho))      "insufficient data"
+  else if (rho < -0.6) "SUPPORTED (rho < -0.6)"
+  else if (rho < 0)    "weak negative — not conclusive"
+  else                 "NOT supported (positive or near-zero)"
+}
+
+auc_verdict <- function(auc_val) {
+  if (auc_val >= 0.80)      "GOOD discrimination (AUC >= 0.80)"
+  else if (auc_val >= 0.70) "ACCEPTABLE discrimination (AUC >= 0.70)"
+  else if (auc_val >= 0.60) "poor — weak discrimination"
+  else                      "NO discrimination (near random)"
+}
+
+hotspot_threshold <- function(values) {
+  threshold <- median(values)
+  list(
+    threshold = threshold,
+    hotspot   = as.integer(values > threshold)
+  )
+}
+
+compute_roc <- function(hotspot, sepi) {
+  roc_obj <- pROC::roc(hotspot, sepi,
+                        direction = ">", quiet = TRUE,
+                        ci = TRUE, ci.method = "delong")
+  auc_val <- as.numeric(pROC::auc(roc_obj))
+  ci_vals  <- as.numeric(pROC::ci(roc_obj))
+  list(roc_obj = roc_obj, auc = auc_val, ci_lo = ci_vals[1], ci_hi = ci_vals[3])
+}
+
 # ---- Theme for plots -------------------------------------------------------
 
 theme_sepi <- function(base_size = 12) {

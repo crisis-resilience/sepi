@@ -356,7 +356,6 @@ plot_sepi_map <- function(sepi_result, country_name,
     combined <- (p_sepi | p_conflict) +
       plot_annotation(
         title    = label,
-        subtitle = subtitle,
         theme    = theme(
           plot.title    = element_text(face = "bold", size = 14),
           plot.subtitle = element_text(colour = "grey40", size = 10)
@@ -365,8 +364,7 @@ plot_sepi_map <- function(sepi_result, country_name,
   } else {
     combined <- p_sepi +
       plot_annotation(
-        title    = paste("SEPI Scores:", label),
-        subtitle = subtitle
+        title    = paste("SEPI Scores:", label)
       )
   }
 

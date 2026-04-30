@@ -1,7 +1,7 @@
 # ============================================================================
 # 05_compare_versions.R — V1 vs V3 Head-to-Head Comparison
 # ============================================================================
-# Compares v1_equal_geometric and v3_conflict_weighted on three dimensions:
+# Compares v1_aligned_equal_geometric and v3_aligned_conflict_weighted on three dimensions:
 #
 #   A. Rank stability — how much do ADM1 rankings shift when the methodology
 #      changes (zscore normalisation, BoD weighting)? Higher mean Spearman rho
@@ -53,15 +53,7 @@ results_v3_bod    <- compute_all_countries(all_data_v3, VERSIONS$v3_aligned_bod)
 cat("Done.\n\n")
 
 # ── IDP data (shared across B and C) ──────────────────────────────────────────
-idp_raw  <- read.csv("data/socio-economic/criterion_validity_data.csv",
-                     stringsAsFactors = FALSE)
-idp_data <- idp_raw |>
-  dplyr::group_by(country) |>
-  dplyr::mutate(
-    pop_frac_norm = (pop_frac_idps - min(pop_frac_idps)) /
-                   (max(pop_frac_idps) - min(pop_frac_idps))
-  ) |>
-  dplyr::ungroup()
+idp_data <- load_idp_data()
 
 # ============================================================================
 # Helper functions
@@ -125,17 +117,15 @@ criterion_validity <- function(sepi_results, country, criterion_fn) {
                 verdict = "insufficient data"))
   }
 
-  rho   <- stats::cor(merged$sepi, merged$criterion_norm,
-                      method = "spearman", use = "complete.obs")
-  p_val <- stats::cor.test(merged$sepi, merged$criterion_norm,
-                            method = "spearman", exact = FALSE)$p.value
+  sp      <- spearman_cor(merged$sepi, merged$criterion_norm)
+  verdict <- dplyr::case_when(
+    is.na(sp$rho)    ~ "insufficient data",
+    sp$rho < -0.6    ~ "SUPPORTED",
+    sp$rho < 0       ~ "weak negative",
+    TRUE             ~ "NOT supported"
+  )
 
-  verdict <- if (is.na(rho))      "insufficient data"
-             else if (rho < -0.6) "SUPPORTED"
-             else if (rho < 0)    "weak negative"
-             else                 "NOT supported"
-
-  list(rho = rho, p = p_val, n = nrow(merged), verdict = verdict)
+  list(rho = sp$rho, p = sp$p, n = nrow(merged), verdict = verdict)
 }
 
 auc_capacity <- function(sepi_results, country, criterion_fn) {
@@ -163,27 +153,24 @@ auc_capacity <- function(sepi_results, country, criterion_fn) {
                 n = n_matched, verdict = "too few units"))
   }
 
-  threshold      <- median(merged$criterion_value)
-  merged$hotspot <- as.integer(merged$criterion_value > threshold)
-  n_hotspot      <- sum(merged$hotspot)
+  hs        <- hotspot_threshold(merged$criterion_value)
+  merged$hotspot <- hs$hotspot
+  n_hotspot <- sum(merged$hotspot)
 
   if (n_hotspot < 2 || n_hotspot > (n_matched - 2)) {
     return(list(auc = NA_real_, ci_lo = NA_real_, ci_hi = NA_real_,
                 n = n_matched, verdict = "class imbalance"))
   }
 
-  roc_obj <- pROC::roc(merged$hotspot, merged$sepi,
-                        direction = ">", quiet = TRUE,
-                        ci = TRUE, ci.method = "delong")
-  auc_val <- as.numeric(pROC::auc(roc_obj))
-  ci_vals  <- as.numeric(pROC::ci(roc_obj))
+  roc_res <- compute_roc(merged$hotspot, merged$sepi)
+  verdict <- dplyr::case_when(
+    roc_res$auc >= 0.80 ~ "GOOD (>=0.80)",
+    roc_res$auc >= 0.70 ~ "acceptable (>=0.70)",
+    roc_res$auc >= 0.60 ~ "poor (0.60-0.70)",
+    TRUE                ~ "no discrimination"
+  )
 
-  verdict <- if (auc_val >= 0.80)      "GOOD (>=0.80)"
-             else if (auc_val >= 0.70) "acceptable (>=0.70)"
-             else if (auc_val >= 0.60) "poor (0.60-0.70)"
-             else                      "no discrimination"
-
-  list(auc = auc_val, ci_lo = ci_vals[1], ci_hi = ci_vals[3],
+  list(auc = roc_res$auc, ci_lo = roc_res$ci_lo, ci_hi = roc_res$ci_hi,
        n = n_matched, verdict = verdict)
 }
 
@@ -473,7 +460,7 @@ cat("========================================\n")
 cat(" H1: lower SEPI -> higher criterion (rho < 0)\n")
 cat(" Target: rho < -0.6 (strong negative)\n")
 cat(" Sources: IDP displacement, ACLED conflict (10y / 5y / 2025)\n")
-cat(" Note: 2025 conflict is circular for v3_conflict_weighted\n\n")
+cat(" Note: 2025 conflict is circular for v3_aligned_conflict_weighted\n\n")
 
 cv_tables <- list()
 
@@ -582,7 +569,7 @@ for (pkg in c("gt", "webshot2")) {
 
 cat("\n")
 cat(strrep("=", 72), "\n")
-cat(" D. SUMMARY SCORECARD — v1_equal_geometric vs v3_conflict_weighted\n")
+cat(" D. SUMMARY SCORECARD — v1_aligned_equal_geometric vs v3_aligned_conflict_weighted\n")
 cat(strrep("=", 72), "\n\n")
 
 avg_stability_v1 <- mean(stability_tbl$v1_mean, na.rm = TRUE)
@@ -766,7 +753,7 @@ gt_tbl <- scorecard_long |>
   ) |>
   gt::tab_footnote(
     footnote = paste(
-      "Conflict (2025) is circular for v3_conflict_weighted, which derives its",
+      "Conflict (2025) is circular for v3_aligned_conflict_weighted, which derives its",
       "weights from 2025 ACLED indicators; read as a sanity check, not external validation.",
       "Conflict (2021\u20132025) and Conflict (2016\u20132025) include 2025 and are therefore",
       "partially endogenous for v3. v1 is independent of all conflict windows."

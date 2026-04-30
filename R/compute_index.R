@@ -380,7 +380,7 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
     cfg <- cfg_resolved
     if (is.null(cfg$se_vars) || is.null(cfg$conflict_col)) {
       stop("V3 conflict_weighting is TRUE but country config is missing ",
-           "se_vars or conflict_col. Check versions/v3_conflict_weighted.json.")
+           "se_vars or conflict_col. Check versions/v3_aligned_conflict_weighted.json.")
     }
 
     se_vars      <- cfg$se_vars

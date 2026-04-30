@@ -1,8 +1,9 @@
 # ============================================================================
-# 04_evaluate.R — Sensitivity analysis and version comparison
+# 04_evaluate.R — Version comparison and criterion validity
 # ============================================================================
-# Run when: validating a new or active version, checking indicator influence,
+# Run when: validating a new or active version, checking criterion validity,
 #           comparing rank stability across methodologies.
+# For sensitivity analysis (SA1/SA2), use 06_sensitivity_analysis.R instead.
 #
 # Prerequisites: 03_run_sepi.R should have been run for the same version
 #               to confirm outputs before running evaluation.
@@ -23,15 +24,11 @@ source("R/normalise.R")
 source("R/compute_index.R")
 
 # ── Configure + Load ──────────────────────────────────────────────────────────
-version      <- VERSIONS$v3_aligned_conflict_weighted   # ← change to switch version under evaluation
+version      <- VERSIONS$v1_aligned_equal_geometric   # ← change to switch version under evaluation
 all_data     <- load_all_data(version = version)
 sepi_results <- compute_all_countries(all_data, version)
 
-# ── A. Sensitivity analysis ───────────────────────────────────────────────────
-# Leave-one-out: how much do SEPI ranks change when each indicator is removed?
-sensitivity_results <- sensitivity_all_countries(all_data, version)
-
-# ── B. Version comparison ─────────────────────────────────────────────────────
+# ── A. Version comparison ─────────────────────────────────────────────────────
 # Compare SEPI ranks between the active version and its robustness variants.
 # Variants are declared in each version's JSON as "robustness_variants".
 # Changing `version` at the top of this script automatically picks the right
@@ -58,7 +55,7 @@ if (length(variant_keys) < 2) {
 
 cat("\nDone.\n")
 
-# ── C. Criterion Validity — IOM IDP origin correlation ────────────────────────
+# ── B. Criterion Validity — IOM IDP origin correlation ────────────────────────
 # Tests H1: SEPI is negatively correlated with IDP displacement density
 # (pop_frac_idps) within each country. Uses Spearman's rho on within-country
 # min-max normalised displacement fractions to handle differing time windows.
@@ -70,26 +67,13 @@ cat("========================================\n")
 cat(" H1: lower SEPI -> higher displacement density (rho < 0)\n")
 cat(" Target: rho < -0.6 (strong negative)\n\n")
 
-idp_raw <- read.csv("data/socio-economic/criterion_validity_data.csv", stringsAsFactors = FALSE)
+idp_data <- load_idp_data()
 
-# Min-max normalise pop_frac_idps within each country
-idp_data <- idp_raw |>
-  dplyr::group_by(country) |>
-  dplyr::mutate(
-    pop_frac_norm = (pop_frac_idps - min(pop_frac_idps)) /
-                   (max(pop_frac_idps) - min(pop_frac_idps))
-  ) |>
-  dplyr::ungroup()
+country_code_map <- c(south_sudan = "SSD", kenya = "KEN", somalia = "SOM")
 
 # Use the primary version (set at top of script) for criterion validity
 for (country in names(sepi_results)) {
   sepi_df <- sepi_results[[country]]
-
-  country_code_map <- c(
-    south_sudan = "SSD",
-    kenya       = "KEN",
-    somalia     = "SOM"
-  )
   cc <- country_code_map[[country]]
   if (is.null(cc)) next
 
@@ -119,15 +103,10 @@ for (country in names(sepi_results)) {
     next
   }
 
-  rho   <- stats::cor(merged$sepi, merged$pop_frac_norm,
-                      method = "spearman", use = "complete.obs")
-  p_val <- stats::cor.test(merged$sepi, merged$pop_frac_norm,
-                            method = "spearman", exact = FALSE)$p.value
-
-  verdict <- if (is.na(rho))         "insufficient data"
-             else if (rho < -0.6)    "SUPPORTED (rho < -0.6)"
-             else if (rho < 0)       "weak negative — not conclusive"
-             else                    "NOT supported (positive or near-zero)"
+  sp      <- spearman_cor(merged$sepi, merged$pop_frac_norm)
+  rho     <- sp$rho
+  p_val   <- sp$p
+  verdict <- spearman_verdict(rho)
 
   cat(sprintf(
     "%s\n  Matched: %d / %d SEPI units  (%d IDP regions)\n  Spearman rho = %.3f  (p = %.3f)\n  Verdict: %s\n\n",
@@ -151,7 +130,7 @@ for (country in names(sepi_results)) {
 
 cat("Criterion validity check complete.\n")
 
-# ── D. Discriminatory Capacity — ROC / Hotspot Test ───────────────────────────
+# ── C. Discriminatory Capacity — ROC / Hotspot Test ───────────────────────────
 # Binary complement to the Spearman test (Section C).
 # Question: can SEPI discriminate displacement hotspots from non-hotspots?
 # Hotspot definition: ADM1 units above the within-country median pop_frac_idps.
@@ -172,8 +151,6 @@ MIN_N_ROC <- 8  # minimum matched units to attempt ROC
 
 for (country in names(sepi_results)) {
   sepi_df <- sepi_results[[country]]
-
-  country_code_map <- c(south_sudan = "SSD", kenya = "KEN", somalia = "SOM")
   cc <- country_code_map[[country]]
   if (is.null(cc)) next
 
@@ -194,9 +171,9 @@ for (country in names(sepi_results)) {
     next
   }
 
-  # Define hotspot: above median displacement density within matched units
-  threshold <- median(merged$pop_frac_idps)
-  merged$hotspot <- as.integer(merged$pop_frac_idps > threshold)
+  hs        <- hotspot_threshold(merged$pop_frac_idps)
+  threshold <- hs$threshold
+  merged$hotspot <- hs$hotspot
   n_hotspot <- sum(merged$hotspot)
 
   if (n_hotspot < 2 || n_hotspot > (n_matched - 2)) {
@@ -205,25 +182,16 @@ for (country in names(sepi_results)) {
     next
   }
 
-  # ROC: direction = ">" because higher SEPI -> lower P(hotspot)
-  roc_obj <- pROC::roc(merged$hotspot, merged$sepi,
-                        direction = ">",
-                        quiet     = TRUE,
-                        ci        = TRUE,
-                        ci.method = "delong")
+  roc_res   <- compute_roc(merged$hotspot, merged$sepi)
+  roc_obj   <- roc_res$roc_obj
+  auc_val   <- roc_res$auc
+  ci_vals   <- c(roc_res$ci_lo, roc_res$auc, roc_res$ci_hi)
 
-  auc_val <- as.numeric(pROC::auc(roc_obj))
-  ci_vals  <- as.numeric(pROC::ci(roc_obj))  # lower, AUC, upper
-
-  # Best SEPI cut-off by Youden's J (maximises sensitivity + specificity - 1)
   coords_df <- pROC::coords(roc_obj, x = "best", best.method = "youden",
                              ret       = c("threshold", "sensitivity", "specificity"),
                              transpose = FALSE)
 
-  verdict <- if (auc_val >= 0.80)      "GOOD discrimination (AUC >= 0.80)"
-             else if (auc_val >= 0.70) "ACCEPTABLE discrimination (AUC >= 0.70)"
-             else if (auc_val >= 0.60) "poor — weak discrimination"
-             else                      "NO discrimination (near random)"
+  verdict <- auc_verdict(auc_val)
 
   note <- if (country == "south_sudan") " [exploratory — n = 10]" else ""
 
@@ -251,23 +219,23 @@ for (country in names(sepi_results)) {
 
 cat("Discriminatory capacity check complete.\n")
 
-# ── E. Criterion Validity Visualisations (Displacement) ──────────────────────
+# ── D. Criterion Validity Visualisations (Displacement) ──────────────────────
 # Two figures saved to outputs/figures/criterion_validity/:
 #   criterion_validity_scatter_displacement_{version}.png — SEPI vs displacement density
 #   criterion_validity_roc_displacement_{version}.png     — ROC curves for Kenya & South Sudan
 
 source("R/visualise.R")
 
-country_code_map <- c(south_sudan = "SSD", kenya = "KEN", somalia = "SOM")
+if (!requireNamespace("ggrepel", quietly = TRUE)) install.packages("ggrepel")
+library(ggrepel)
 
 # ---- E1. Scatter: SEPI vs displacement density --------------------------------
 
 scatter_plots <- list()
 
 for (country in names(sepi_results)) {
-  cc      <- country_code_map[[country]]
-  sepi_df <- sepi_results[[country]]
-
+  cc          <- country_code_map[[country]]
+  sepi_df     <- sepi_results[[country]]
   idp_country <- dplyr::filter(idp_data, country_code == cc)
   merged <- dplyr::inner_join(
     dplyr::select(sepi_df, adm1_pcode, adm1_name, sepi),
@@ -276,11 +244,9 @@ for (country in names(sepi_results)) {
   )
   if (nrow(merged) < 3) next
 
-  rho   <- round(stats::cor(merged$sepi, merged$pop_frac_norm,
-                             method = "spearman", use = "complete.obs"), 3)
-  p_val <- stats::cor.test(merged$sepi, merged$pop_frac_norm,
-                            method = "spearman", exact = FALSE)$p.value
-  p_lab <- if (p_val < 0.001) "p < 0.001" else sprintf("p = %.3f", p_val)
+  sp    <- spearman_cor(merged$sepi, merged$pop_frac_norm)
+  rho   <- round(sp$rho, 3)
+  p_lab <- if (sp$p < 0.001) "p < 0.001" else sprintf("p = %.3f", sp$p)
 
   scatter_plots[[country]] <- ggplot(merged,
       aes(x = sepi, y = pop_frac_norm, label = adm1_name)) +
@@ -295,52 +261,12 @@ for (country in names(sepi_results)) {
     labs(
       title    = country_label(country),
       x        = "SEPI score (higher = better)",
-      y        = "Displacement density (within-country normalised)"
+      y        = "Displacement density\n(within-country normalised)"
     ) +
     theme_sepi()
 }
 
 if (length(scatter_plots) > 0) {
-  if (!requireNamespace("ggrepel", quietly = TRUE)) install.packages("ggrepel")
-  library(ggrepel)
-
-  # Rebuild plots now that ggrepel is loaded
-  scatter_plots <- list()
-  for (country in names(sepi_results)) {
-    cc      <- country_code_map[[country]]
-    sepi_df <- sepi_results[[country]]
-    idp_country <- dplyr::filter(idp_data, country_code == cc)
-    merged <- dplyr::inner_join(
-      dplyr::select(sepi_df, adm1_pcode, adm1_name, sepi),
-      dplyr::select(idp_country, adm1_pcode, pop_frac_idps, pop_frac_norm),
-      by = "adm1_pcode"
-    )
-    if (nrow(merged) < 3) next
-
-    rho   <- round(stats::cor(merged$sepi, merged$pop_frac_norm,
-                               method = "spearman", use = "complete.obs"), 3)
-    p_val <- stats::cor.test(merged$sepi, merged$pop_frac_norm,
-                              method = "spearman", exact = FALSE)$p.value
-    p_lab <- if (p_val < 0.001) "p < 0.001" else sprintf("p = %.3f", p_val)
-
-    scatter_plots[[country]] <- ggplot(merged,
-        aes(x = sepi, y = pop_frac_norm, label = adm1_name)) +
-      geom_point(colour = "#2c7fb8", size = 2.5, alpha = 0.8) +
-      ggrepel::geom_text_repel(size = 2.8, colour = "grey30",
-                                max.overlaps = 15, seed = 42) +
-      geom_smooth(method = "lm", se = TRUE, colour = "#e34a33",
-                  linewidth = 0.8, alpha = 0.15) +
-      annotate("text", x = Inf, y = Inf,
-               label = sprintf("Spearman \u03c1 = %s\n%s", rho, p_lab),
-               hjust = 1.1, vjust = 1.5, size = 3.2, colour = "grey20") +
-      labs(
-        title    = country_label(country),
-        x        = "SEPI score (higher = better)",
-        y        = "Displacement density\n(within-country normalised)"
-      ) +
-      theme_sepi()
-  }
-
   combined_scatter <- patchwork::wrap_plots(scatter_plots, ncol = 3) +
     patchwork::plot_annotation(
       title    = "Criterion Validity: SEPI vs IDP Displacement Density",
@@ -358,12 +284,11 @@ if (length(scatter_plots) > 0) {
 
 # ---- E2. ROC curves for countries with sufficient n -------------------------
 
-roc_plots    <- list()
-roc_countries <- list()
+roc_plots <- list()
 
 for (country in names(sepi_results)) {
-  cc      <- country_code_map[[country]]
-  sepi_df <- sepi_results[[country]]
+  cc          <- country_code_map[[country]]
+  sepi_df     <- sepi_results[[country]]
   idp_country <- dplyr::filter(idp_data, country_code == cc)
 
   merged <- dplyr::inner_join(
@@ -374,21 +299,16 @@ for (country in names(sepi_results)) {
   n_matched <- nrow(merged)
   if (n_matched < MIN_N_ROC) next
 
-  threshold      <- median(merged$pop_frac_idps)
-  merged$hotspot <- as.integer(merged$pop_frac_idps > threshold)
-  n_hotspot      <- sum(merged$hotspot)
+  hs        <- hotspot_threshold(merged$pop_frac_idps)
+  threshold <- hs$threshold
+  merged$hotspot <- hs$hotspot
+  n_hotspot <- sum(merged$hotspot)
   if (n_hotspot < 2 || n_hotspot > (n_matched - 2)) next
 
-  roc_obj <- pROC::roc(merged$hotspot, merged$sepi,
-                        direction = ">", quiet = TRUE,
-                        ci = TRUE, ci.method = "delong")
-
-  auc_val <- as.numeric(pROC::auc(roc_obj))
-  ci_vals  <- as.numeric(pROC::ci(roc_obj))
-
-  roc_df <- data.frame(
-    specificity = roc_obj$specificities,
-    sensitivity = roc_obj$sensitivities
+  roc_res <- compute_roc(merged$hotspot, merged$sepi)
+  roc_df  <- data.frame(
+    specificity = roc_res$roc_obj$specificities,
+    sensitivity = roc_res$roc_obj$sensitivities
   )
 
   note  <- if (country == "south_sudan") " (exploratory, n=10)" else ""
@@ -399,7 +319,7 @@ for (country in names(sepi_results)) {
     geom_area(fill = "#2c7fb8", alpha = 0.1) +
     annotate("text", x = 0.65, y = 0.15,
              label = sprintf("AUC = %.3f\n95%% CI: %.3f\u2013%.3f",
-                             auc_val, ci_vals[1], ci_vals[3]),
+                             roc_res$auc, roc_res$ci_lo, roc_res$ci_hi),
              size = 3.3, colour = "grey20", hjust = 0) +
     scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
     scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
@@ -433,12 +353,12 @@ if (length(roc_plots) > 0) {
 
 cat("Displacement visualisations complete.\n")
 
-# ── F. Criterion Validity — ACLED Conflict Intensity ──────────────────────────
+# ── E. Criterion Validity — ACLED Conflict Intensity ──────────────────────────
 # Parallel test using conflict events per 1k population (ACLED) as the
 # external criterion, over three time windows:
 #   "10y"  -> 2016–2025
 #   "5y"   -> 2021–2025
-#   "2025" -> 2025 only (circular for v3_conflict_weighted)
+#   "2025" -> 2025 only (circular for v3_aligned_conflict_weighted)
 # Produces 3 scatter PNGs and 3 ROC PNGs (one per window), mirroring Section E.
 
 source("R/criterion_validity_conflict.R")
@@ -448,7 +368,7 @@ cat(" Criterion Validity — ACLED Conflict Intensity\n")
 cat("========================================\n")
 cat(" H1: lower SEPI -> higher conflict events per 1k (rho < 0)\n")
 cat(" Target: rho < -0.6 (strong negative)\n")
-cat(" Note: 2025 window is circular for v3_conflict_weighted\n\n")
+cat(" Note: 2025 window is circular for v3_aligned_conflict_weighted\n\n")
 
 conflict_windows <- c("10y", "5y", "2025")
 
