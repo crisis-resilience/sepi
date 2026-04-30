@@ -17,9 +17,9 @@
       "exclude_regions": [],
       "pillars": {
         "education": {
-          "indicators": ["primary_school_net_attendance_total", "net_attendance_total"],
-          "polarity": [1, 1],
-          "labels": ["Primary net attendance (%)", "Secondary net attendance (%)"]
+          "indicators": ["primary_school_net_attendance_total", "net_attendance_total", "school_access_pop"],
+          "polarity": [1, 1, 1],
+          "labels": ["Primary net attendance (%)", "Secondary net attendance (%)", "Population with school access (%)"]
         },
         "health": {
           "indicators": ["healthcare_access_pop", "health_fac_per_10k_pop", "hospitals_per_100k_pop"],
@@ -53,9 +53,9 @@
       "exclude_regions": [],
       "pillars": {
         "education": {
-          "indicators": ["literacy_percent_total", "primary_school_net_attendance_total", "percent_highest_level_secondary_education"],
-          "polarity": [1, 1, 1],
-          "labels": ["Literacy rate (%)", "Primary net attendance (%)", "Secondary education attainment (%)"]
+          "indicators": ["literacy_percent_total", "primary_school_net_attendance_total", "percent_highest_level_secondary_education", "school_access_pop"],
+          "polarity": [1, 1, 1, 1],
+          "labels": ["Literacy rate (%)", "Primary net attendance (%)", "Secondary education attainment (%)", "Population with school access (%)"]
         },
         "health": {
           "indicators": ["healthcare_access_pop", "health_fac_per_10k_pop", "hospitals_per_100k_pop"],

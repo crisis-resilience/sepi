@@ -89,9 +89,9 @@
       "exclude_regions": ["SS00"],
       "pillars": {
         "education": {
-          "indicators": ["enrollment_rate", "dropout_pct"],
-          "polarity": [1, -1],
-          "labels": ["Enrollment rate (%, derived)", "Dropout rate (%)"]
+          "indicators": ["school_access_pop", "enrollment_rate", "dropout_pct"],
+          "polarity": [1, 1, -1],
+          "labels": ["Population with school access (%)", "Enrollment rate (%, derived)", "Dropout rate (%)"]
         },
         "health": {
           "indicators": ["health_fac_per_10k_pop", "hospitals_per_100k_pop"],

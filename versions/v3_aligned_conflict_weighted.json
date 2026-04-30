@@ -18,7 +18,7 @@
       "imputation": "mean",
       "se_vars": [
         "pop_frac_3plus",
-        "primary_school_net_attendance_total", "net_attendance_total",
+        "primary_school_net_attendance_total", "net_attendance_total", "school_access_pop",
         "healthcare_access_pop", "health_fac_per_10k_pop", "hospitals_per_100k_pop",
         "poverty_headcount_pct", "gcp_pc",
         "rs_ndvi", "rs_soil_moist", "rs_fapar", "rs_pdsi"
@@ -36,7 +36,7 @@
       },
       "pillar_groups": {
         "food_security": ["pop_frac_3plus"],
-        "education":     ["primary_school_net_attendance_total", "net_attendance_total"],
+        "education":     ["primary_school_net_attendance_total", "net_attendance_total", "school_access_pop"],
         "health":        ["healthcare_access_pop", "health_fac_per_10k_pop", "hospitals_per_100k_pop"],
         "economic":      ["poverty_headcount_pct", "gcp_pc"],
         "climate":       ["rs_ndvi", "rs_soil_moist", "rs_fapar", "rs_pdsi"]
@@ -68,7 +68,7 @@
       "imputation": "mean",
       "se_vars": [
         "pop_frac_3plus",
-        "literacy_percent_total", "primary_school_net_attendance_total", "percent_highest_level_secondary_education",
+        "literacy_percent_total", "primary_school_net_attendance_total", "percent_highest_level_secondary_education", "school_access_pop",
         "healthcare_access_pop", "health_fac_per_10k_pop", "hospitals_per_100k_pop",
         "poverty_headcount_pct", "total_expenditure_usd",
         "rs_ndvi", "rs_soil_moist", "rs_fapar", "rs_pdsi"
@@ -86,7 +86,7 @@
       },
       "pillar_groups": {
         "food_security": ["pop_frac_3plus"],
-        "education":     ["literacy_percent_total", "primary_school_net_attendance_total", "percent_highest_level_secondary_education"],
+        "education":     ["literacy_percent_total", "primary_school_net_attendance_total", "percent_highest_level_secondary_education", "school_access_pop"],
         "health":        ["healthcare_access_pop", "health_fac_per_10k_pop", "hospitals_per_100k_pop"],
         "economic":      ["poverty_headcount_pct", "total_expenditure_usd"],
         "climate":       ["rs_ndvi", "rs_soil_moist", "rs_fapar", "rs_pdsi"]

@@ -21,9 +21,11 @@ source("R/utils.R")
 source("R/load_data.R")
 source("R/normalise.R")
 source("R/compute_index.R")
+source("R/visualise.R")
+source("R/criterion_validity_conflict.R")
 
 # ── Configure + Load ──────────────────────────────────────────────────────────
-version      <- VERSIONS$v3_aligned_conflict_weighted   # ← change to switch version under evaluation
+version      <- VERSIONS$v3_aligned_conflict_weighted  # ← change to switch version under evaluation
 all_data     <- load_all_data(version = version)
 sepi_results <- compute_all_countries(all_data, version)
 
@@ -70,27 +72,13 @@ cat("========================================\n")
 cat(" H1: lower SEPI -> higher displacement density (rho < 0)\n")
 cat(" Target: rho < -0.6 (strong negative)\n\n")
 
-idp_raw <- read.csv("data/socio-economic/criterion_validity_data.csv", stringsAsFactors = FALSE)
-
-# Min-max normalise pop_frac_idps within each country
-idp_data <- idp_raw |>
-  dplyr::group_by(country) |>
-  dplyr::mutate(
-    pop_frac_norm = (pop_frac_idps - min(pop_frac_idps)) /
-                   (max(pop_frac_idps) - min(pop_frac_idps))
-  ) |>
-  dplyr::ungroup()
+idp_data <- load_idp_data()
 
 # Use the primary version (set at top of script) for criterion validity
 for (country in names(sepi_results)) {
   sepi_df <- sepi_results[[country]]
 
-  country_code_map <- c(
-    south_sudan = "SSD",
-    kenya       = "KEN",
-    somalia     = "SOM"
-  )
-  cc <- country_code_map[[country]]
+  cc <- COUNTRY_CODE_MAP[[country]]
   if (is.null(cc)) next
 
   idp_country <- dplyr::filter(idp_data, country_code == cc)
@@ -173,8 +161,7 @@ MIN_N_ROC <- 8  # minimum matched units to attempt ROC
 for (country in names(sepi_results)) {
   sepi_df <- sepi_results[[country]]
 
-  country_code_map <- c(south_sudan = "SSD", kenya = "KEN", somalia = "SOM")
-  cc <- country_code_map[[country]]
+  cc <- COUNTRY_CODE_MAP[[country]]
   if (is.null(cc)) next
 
   idp_country <- dplyr::filter(idp_data, country_code == cc)
@@ -256,18 +243,16 @@ cat("Discriminatory capacity check complete.\n")
 #   criterion_validity_scatter_displacement_{version}.png — SEPI vs displacement density
 #   criterion_validity_roc_displacement_{version}.png     — ROC curves for Kenya & South Sudan
 
-source("R/visualise.R")
-
-country_code_map <- c(south_sudan = "SSD", kenya = "KEN", somalia = "SOM")
-
 # ---- E1. Scatter: SEPI vs displacement density --------------------------------
 
 scatter_plots <- list()
 
-for (country in names(sepi_results)) {
-  cc      <- country_code_map[[country]]
-  sepi_df <- sepi_results[[country]]
+if (!requireNamespace("ggrepel", quietly = TRUE)) install.packages("ggrepel")
+library(ggrepel)
 
+for (country in names(sepi_results)) {
+  cc          <- COUNTRY_CODE_MAP[[country]]
+  sepi_df     <- sepi_results[[country]]
   idp_country <- dplyr::filter(idp_data, country_code == cc)
   merged <- dplyr::inner_join(
     dplyr::select(sepi_df, adm1_pcode, adm1_name, sepi),
@@ -295,52 +280,12 @@ for (country in names(sepi_results)) {
     labs(
       title    = country_label(country),
       x        = "SEPI score (higher = better)",
-      y        = "Displacement density (within-country normalised)"
+      y        = "Displacement density\n(within-country normalised)"
     ) +
     theme_sepi()
 }
 
 if (length(scatter_plots) > 0) {
-  if (!requireNamespace("ggrepel", quietly = TRUE)) install.packages("ggrepel")
-  library(ggrepel)
-
-  # Rebuild plots now that ggrepel is loaded
-  scatter_plots <- list()
-  for (country in names(sepi_results)) {
-    cc      <- country_code_map[[country]]
-    sepi_df <- sepi_results[[country]]
-    idp_country <- dplyr::filter(idp_data, country_code == cc)
-    merged <- dplyr::inner_join(
-      dplyr::select(sepi_df, adm1_pcode, adm1_name, sepi),
-      dplyr::select(idp_country, adm1_pcode, pop_frac_idps, pop_frac_norm),
-      by = "adm1_pcode"
-    )
-    if (nrow(merged) < 3) next
-
-    rho   <- round(stats::cor(merged$sepi, merged$pop_frac_norm,
-                               method = "spearman", use = "complete.obs"), 3)
-    p_val <- stats::cor.test(merged$sepi, merged$pop_frac_norm,
-                              method = "spearman", exact = FALSE)$p.value
-    p_lab <- if (p_val < 0.001) "p < 0.001" else sprintf("p = %.3f", p_val)
-
-    scatter_plots[[country]] <- ggplot(merged,
-        aes(x = sepi, y = pop_frac_norm, label = adm1_name)) +
-      geom_point(colour = "#2c7fb8", size = 2.5, alpha = 0.8) +
-      ggrepel::geom_text_repel(size = 2.8, colour = "grey30",
-                                max.overlaps = 15, seed = 42) +
-      geom_smooth(method = "lm", se = TRUE, colour = "#e34a33",
-                  linewidth = 0.8, alpha = 0.15) +
-      annotate("text", x = Inf, y = Inf,
-               label = sprintf("Spearman \u03c1 = %s\n%s", rho, p_lab),
-               hjust = 1.1, vjust = 1.5, size = 3.2, colour = "grey20") +
-      labs(
-        title    = country_label(country),
-        x        = "SEPI score (higher = better)",
-        y        = "Displacement density\n(within-country normalised)"
-      ) +
-      theme_sepi()
-  }
-
   combined_scatter <- patchwork::wrap_plots(scatter_plots, ncol = 3) +
     patchwork::plot_annotation(
       title    = "Criterion Validity: SEPI vs IDP Displacement Density",
@@ -362,8 +307,8 @@ roc_plots    <- list()
 roc_countries <- list()
 
 for (country in names(sepi_results)) {
-  cc      <- country_code_map[[country]]
-  sepi_df <- sepi_results[[country]]
+  cc          <- COUNTRY_CODE_MAP[[country]]
+  sepi_df     <- sepi_results[[country]]
   idp_country <- dplyr::filter(idp_data, country_code == cc)
 
   merged <- dplyr::inner_join(
@@ -440,8 +385,6 @@ cat("Displacement visualisations complete.\n")
 #   "5y"   -> 2021–2025
 #   "2025" -> 2025 only (circular for v3_conflict_weighted)
 # Produces 3 scatter PNGs and 3 ROC PNGs (one per window), mirroring Section E.
-
-source("R/criterion_validity_conflict.R")
 
 cat("\n========================================\n")
 cat(" Criterion Validity — ACLED Conflict Intensity\n")
