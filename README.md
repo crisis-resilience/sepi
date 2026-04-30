@@ -67,9 +67,23 @@ The main pipeline. Set `version` at the top and source:
 source("03_run_sepi.R")
 ```
 
-Two optional blocks are included but commented out:
-- **Sensitivity analysis** — leave-one-out indicator sensitivity (`sensitivity_all_countries()`)
-- **Version comparison** — rank correlations across methodology variants (`compare_versions()`)
+---
+
+### `04_evaluate.R` — Criterion validity evaluation
+
+Runs criterion validity checks against ACLED conflict data. Evaluates whether SEPI and its pillars correlate meaningfully with conflict indicators. Produces diagnostic plots and correlation matrices.
+
+---
+
+### `05_compare_versions.R` — Compare methodologies
+
+Compares rank correlations, score distributions, and indicator importance across all versions (main versions + robustness checks). Useful for sensitivity testing and understanding how methodology choices affect regional rankings.
+
+---
+
+### `06_sensitivity_analysis.R` — Leave-one-out sensitivity
+
+Performs leave-one-out indicator sensitivity analysis to assess the impact of each indicator on final SEPI scores. Identifies which indicators drive regional rankings.
 
 ## Pipeline Steps (`03_run_sepi.R`)
 
@@ -85,28 +99,40 @@ Two optional blocks are included but commented out:
 
 ```
 SEPI_R&D/
-├── 01_build_data.R         # Rebuild merged global CSV
-├── 02_explore.R            # Indicator exploration and screening
-├── 03_run_sepi.R           # Main pipeline entry point
-├── versions/               # Methodology variants (one JSON per version)
-│   ├── v1_equal_geometric.json
-│   ├── v2_pca_geometric.json
-│   └── v3_conflict_weighted.json
+├── 01_build_data.R           # Rebuild merged global CSV
+├── 02_explore.R              # Indicator exploration and screening
+├── 03_run_sepi.R             # Main pipeline entry point
+├── 04_evaluate.R             # Criterion validity evaluation (ACLED)
+├── 05_compare_versions.R     # Version comparison and sensitivity testing
+├── 06_sensitivity_analysis.R # Leave-one-out indicator sensitivity
+├── versions/                 # Main methodology variants (one JSON per version)
+│   ├── _template.json
+│   ├── v1_aligned_equal_arithmetic.json
+│   ├── v1_aligned_equal_geometric.json
+│   └── v3_aligned_conflict_weighted.json
+├── robustness_checks/        # Alternative normalization methods (BOD, z-score)
+│   ├── v1_aligned_bod.json
+│   ├── v1_aligned_zscore.json
+│   ├── v3_aligned_bod.json
+│   └── v3_aligned_zscore.json
+├── docs/                     # Methodology documentation
+│   └── methodology/
+│       └── SEPI_ROBUSTNESS_SENSITIVITY_VALIDITY.md
 ├── R/
-│   ├── config.R            # Global paths, version loader
-│   ├── utils.R             # Aggregation helpers, labels, ggplot theme
-│   ├── load_data.R         # Data loading and country-specific cleaning
-│   ├── normalise.R         # Min-max / z-score / rank normalisation
-│   ├── compute_index.R     # SEPI computation engine
-│   ├── diagnostics.R       # Data quality checks
-│   ├── screen_indicators.R # Candidate indicator triage
-│   ├── conflict_analysis.R # SEPI–conflict linkage (Spearman correlations)
-│   ├── visualise.R         # Plot generation
-│   ├── export_excel.R      # Excel workbook export
-│   └── build_global_data.R # Merge per-country source files into global CSV
-├── data/                   # Input data (not tracked — see .gitignore)
-├── data_dictionnaries/     # Data dictionaries
-└── outputs/                # Generated plots and Excel results
+│   ├── config.R              # Global paths, version loader
+│   ├── utils.R               # Aggregation helpers, labels, ggplot theme
+│   ├── load_data.R           # Data loading and country-specific cleaning
+│   ├── normalise.R           # Min-max / z-score / rank normalisation
+│   ├── compute_index.R       # SEPI computation engine
+│   ├── diagnostics.R         # Data quality checks
+│   ├── screen_indicators.R   # Candidate indicator triage
+│   ├── conflict_analysis.R   # SEPI–conflict linkage (Spearman correlations)
+│   ├── visualise.R           # Plot generation
+│   ├── export_excel.R        # Excel workbook export
+│   └── build_global_data.R   # Merge per-country source files into global CSV
+├── data/                     # Input data (not tracked — see .gitignore)
+├── data_dictionnaries/       # Data dictionaries
+└── outputs/                  # Generated plots and Excel results (organised by version)
 ```
 
 ## Version System
@@ -114,20 +140,41 @@ SEPI_R&D/
 SEPI versions are defined as self-contained JSON files in `versions/`. Each file specifies the methodology parameters and full country indicator definitions. To switch versions, change one line in `03_run_sepi.R`:
 
 ```r
-version <- VERSIONS$v1_equal_geometric   # ← any key in VERSIONS
+version <- VERSIONS$v1_aligned_equal_geometric   # ← any key in VERSIONS
 ```
 
-Adding a new version requires no R code changes — create a new JSON file and it appears automatically as `VERSIONS$<name>`.
+Adding a new version requires no R code changes — create a new JSON file in `versions/` and it appears automatically as `VERSIONS$<name>`.
+
+### Main Versions
 
 | Version | Description |
 |---------|-------------|
-| `v1_equal_geometric` | Arithmetic mean within pillars, geometric mean across, equal weights |
-| `v2_pca_geometric` | PCA-derived weights within pillars, geometric mean across |
-| `v3_conflict_weighted` | Conflict-correlation weighted flat sum |
+| `v1_aligned_equal_geometric` | Arithmetic mean within pillars, geometric mean across, equal indicator and pillar weights |
+| `v1_aligned_equal_arithmetic` | Arithmetic mean both within and across pillars, equal weights |
+| `v3_aligned_conflict_weighted` | Conflict-correlation weighted flat sum |
+
+### Robustness Checks
+
+Alternative normalization methods are available in `robustness_checks/`:
+
+| Version | Normalization | Description |
+|---------|---------------|-------------|
+| `v1_aligned_bod` | Benefit of the Doubt | BoD weighting for v1_aligned_equal_geometric |
+| `v1_aligned_zscore` | Z-score | Z-score normalisation for v1_aligned_equal_geometric |
+| `v3_aligned_bod` | Benefit of the Doubt | BoD weighting for v3_aligned_conflict_weighted |
+| `v3_aligned_zscore` | Z-score | Z-score normalisation for v3_aligned_conflict_weighted |
+
+Use robustness check versions in `03_run_sepi.R` by pointing to the `robustness_checks/` directory:
+
+```r
+version <- load_version_json("robustness_checks/v1_aligned_zscore.json")
+```
 
 ## Outputs
 
-### Excel workbook: `outputs/sepi_results_<version>.xlsx`
+### Excel workbook: `outputs/<version>/sepi_results_<version>.xlsx`
+
+Outputs are organised by version in subdirectories (`outputs/v1_aligned_equal_geometric/`, `outputs/v1_aligned_equal_arithmetic/`, etc.).
 
 | Sheet | Contents |
 |-------|----------|
@@ -138,14 +185,32 @@ Adding a new version requires no R code changes — create a new JSON file and i
 
 ### Plots (PNG)
 
-Per country: `rankings_<country>.png`, `pillars_<country>.png`, `sepi_conflict_<country>.png`.
+Per country and version: `outputs/<version>/rankings_<country>.png`, `outputs/<version>/pillars_<country>.png`, `outputs/<version>/sepi_conflict_<country>.png`.
 
-## Methodology (default: v1_equal_geometric)
+## Methodology Documentation
+
+Detailed documentation on robustness variants, sensitivity analysis, and validity assessment is available in `docs/methodology/SEPI_ROBUSTNESS_SENSITIVITY_VALIDITY.md`.
+
+## Methodology (default: v1_aligned_equal_geometric)
 
 1. **Normalisation** — Min-max scaling to [0, 1] with polarity alignment (negative-polarity indicators are inverted so higher always = better).
 2. **Within-pillar aggregation** — Arithmetic mean of normalised indicators (equal indicator weights).
 3. **Across-pillar aggregation** — Geometric mean of pillar scores (equal pillar weights). A small floor (0.001) prevents zero-products.
 4. **Ranking** — 1 = best socio-economic conditions within each country.
+
+## Data Sources
+
+Organised by pillar for `v1_aligned_equal_geometric`. All administrative units follow OCHA COD boundaries.
+
+| Pillar | Kenya | Somalia | South Sudan |
+|--------|-------|---------|-------------|
+| Food Security | IPC via HDX HAPI (2025) | IPC via HDX HAPI (2024) | IPC via HDX HAPI (2024) |
+| Education | Kenya Population & Housing Census (2019) | Somalia Integrated Household Budget Survey — SIHBS (2022) | National Education Census Report (2021); Heidelberg Institute for Geoinformation Technology (2025) |
+| Health | Government of Kenya / WHO health facility registry (2025); Heidelberg Institute for Geoinformation Technology (2025) | WHO health facility database (2024); Heidelberg Institute for Geoinformation Technology (2025) | WHO health facility database (2024); Heidelberg Institute for Geoinformation Technology (2025) |
+| Economic | Oxford Poverty & Human Development Initiative / MPI (2022); Kenya National Bureau of Statistics — KNBS (2022) | Somalia National Bureau of Statistics — SNBS (2023) | Republic of South Sudan Poverty and Equity Assessment (2024); CLiMIS South Sudan (2024) |
+| Climate | Google Earth Engine Data Catalog (2023) | Google Earth Engine Data Catalog (2024) | Google Earth Engine Data Catalog (2023) |
+
+> Middle Juba (Somalia) and Abyei (South Sudan) are excluded from SEPI computation due to data inaccessibility and contested administrative status respectively.
 
 ## Dependencies
 

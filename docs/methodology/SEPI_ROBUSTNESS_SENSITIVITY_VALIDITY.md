@@ -2,6 +2,15 @@
 
 This document covers the alternative versions tested during SEPI development, the robustness checks applied to those versions, sensitivity diagnostics, and external validity tests. The **core SEPI methodology** is documented in the project README.
 
+## Additional Data Sources
+
+The following data sources are used in this document and are not part of the main SEPI pillar computation documented in the README.
+
+| Source | Used for | Coverage | Reference period |
+|--------|----------|----------|-----------------|
+| ACLED (Armed Conflict Location & Event Data) | Conflict-correlation weights in `v3_aligned_conflict_weighted`; external criterion in validity tests | Kenya, Somalia, South Sudan — Admin-1 | 2016–2025 (yearly) |
+| IOM Displacement Tracking Matrix (DTM) | IDP origin displacement density — primary external validity criterion | Kenya (HDX HAPI), Somalia (DTM), South Sudan (DTM) | 2024–2026 (latest available per country) |
+
 ---
 
 ## 1. Alternative Version: Conflict-Correlation Weighting (`v3_aligned_conflict_weighted`)
@@ -188,7 +197,7 @@ SEPI scores are on a continuous 0–1 scale. A score of **1.0** indicates the st
 
 Two methodological variants are used to test whether SEPI district rankings are sensitive to the choice of (a) normalisation method and (b) weighting scheme. In both cases, all data sources, administrative boundaries, exclusion criteria, and indicator sets are identical to the baseline `v3_aligned_conflict_weighted` version — only the targeted methodological element changes.
 
-| Dimension | `v3_aligned_conflict_weighted` (baseline) | `v3_zscore` | `v3_bod` |
+| Dimension | `v3_aligned_conflict_weighted` (baseline) | `v3_aligned_zscore` | `v3_aligned_bod` |
 |-----------|-----------------------------------|-------------|----------|
 | Normalisation | Min-max [0, 1] | Z-score (mean 0, sd 1) | Min-max [0, 1] |
 | Weighting | Conflict-correlation weights | Conflict-correlation weights | Benefit of the Doubt (endogenous, per-district) |
@@ -197,7 +206,7 @@ Two methodological variants are used to test whether SEPI district rankings are 
 
 ---
 
-### 2.1 Z-Score Normalisation (`v3_zscore`)
+### 2.1 Z-Score Normalisation (`v3_aligned_zscore`)
 
 #### Conceptual motivation
 
@@ -227,7 +236,7 @@ The final rescaling to [0, 1] is **skipped** (`skip_final_rescale = true`). The 
 
 ---
 
-### 2.2 Benefit of the Doubt Weighting (`v3_bod`)
+### 2.2 Benefit of the Doubt Weighting (`v3_aligned_bod`)
 
 #### Conceptual motivation
 
@@ -295,11 +304,11 @@ Lower bound:   L = 0.200 × 0.5 = 0.100
 Upper bound:   U = 0.200 × 1.5 = 0.300
 ```
 
-The flexibility parameter is set via `bod_weight_flex = 0.5` in `robustness_checks/v3_bod.json`. The LP is solved once per district using the `lpSolve` package (`R/compute_index.R`, function `compute_bod_sepi()`).
+The flexibility parameter is set via `bod_weight_flex = 0.5` in `robustness_checks/v3_aligned_bod.json`. The LP is solved once per district using the `lpSolve` package (`R/compute_index.R`, function `compute_bod_sepi()`).
 
 #### Results
 
-| Country | v3_minmax vs v3_bod | v3_zscore vs v3_bod |
+| Country | v3_minmax vs v3_aligned_bod | v3_aligned_zscore vs v3_aligned_bod |
 |---------|---------------------|---------------------|
 | Kenya | 0.860 | 0.890 |
 | Somalia | 0.905 | 0.884 |
