@@ -1,33 +1,29 @@
 # ============================================================================
 # 05_compare_versions.R — V1 vs V3 Head-to-Head Comparison
 # ============================================================================
-# Compares v1_equal_geometric and v3_conflict_weighted on three dimensions:
+# Compares v1_aligned_equal_geometric and v3_aligned_conflict_weighted on:
 #
-#   A. Rank stability — how much do ADM1 rankings shift when the methodology
-#      changes (zscore normalisation, BoD weighting)? Higher mean Spearman rho
-#      between primary and robustness variants = more stable rankings.
-#
-#   B. Criterion validity — Spearman rank correlation between SEPI score and
-#      IDP displacement density (IOM DTM). rho < -0.6 = H1 supported.
-#
-#   C. Discriminatory capacity (AUC) — can SEPI identify displacement
-#      hotspots (ADM1 units above median IDP density)? AUC >= 0.70 acceptable.
-#
-#   D. Summary scorecard — all metrics side by side in one table.
+#   A.  Rank stability — Spearman rho between each version's primary results
+#       and its robustness variants (z-score, BoD). Higher mean rho = more
+#       stable rankings under methodology changes.
+#   A2. Extended robustness — MARS (Mean Absolute Rank Shift) and Top-5
+#       stability (% of worst-off ADM1s retained across variants).
+#   B.  Criterion validity — Spearman rho between SEPI and 4 external
+#       criteria: IDP displacement density + ACLED conflict (10y / 5y / 2025).
+#       Target: rho < -0.6.
+#   C.  Discriminatory capacity (AUC) — same 4 criterion sources; hotspot =
+#       ADM1 above within-country median. AUC >= 0.70 acceptable.
+#   D.  Summary scorecard — colour-coded PNG table of all metrics.
+#   E.  Unit-level rank tables — ADM1 rankings across primary version and
+#       both variants, with shift (Delta) highlighted where |Delta| >= 3.
 #
 # No inputs required beyond the data files already used by the pipeline.
 # ============================================================================
 
-for (pkg in c("tidyverse", "psych", "purrr", "rlang", "jsonlite", "pROC")) {
-  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
-}
-library(tidyverse)
+source("R/setup.R")
 
-source("R/config.R")
-source("R/utils.R")
-source("R/load_data.R")
-source("R/normalise.R")
-source("R/compute_index.R")
+if (!requireNamespace("pROC", quietly = TRUE)) install.packages("pROC")
+
 source("R/criterion_validity_conflict.R")
 
 # COUNTRY_CODE_MAP, COUNTRIES, MIN_N_ROC defined in R/utils.R

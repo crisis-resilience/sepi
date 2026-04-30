@@ -5,23 +5,20 @@
 # To explore / screen indicators: source("02_explore.R")
 # ============================================================================
 
-for (pkg in c("tidyverse", "psych", "ggrepel", "openxlsx", "purrr", "rlang",
-              "jsonlite", "sf", "patchwork")) {
+source("R/setup.R")
+
+for (pkg in c("ggrepel", "openxlsx", "sf", "patchwork")) {
   if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
 }
-library(tidyverse)
 
-source("R/config.R")
-source("R/utils.R")
-source("R/load_data.R")
-source("R/normalise.R")
-source("R/compute_index.R")
 source("R/conflict_analysis.R")
 source("R/visualise.R")
 source("R/export_excel.R")
 
 # ── Configure ─────────────────────────────────────────────────────────────────
-version <- VERSIONS$v1_aligned_equal_geometric  # ← change to switch version
+# When sourced from run_all.R, .sepi_run_version is set there; otherwise use the
+# version defined below.
+version <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v1_aligned_equal_geometric  # ← change to switch version
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 all_data         <- load_all_data(version = version)

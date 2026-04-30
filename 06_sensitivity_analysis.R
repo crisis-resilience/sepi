@@ -21,17 +21,12 @@
 #                                                        — formatted gt table per country
 # ============================================================================
 
-for (pkg in c("tidyverse", "psych", "openxlsx", "purrr", "rlang",
-              "jsonlite", "gt")) {
+source("R/setup.R")
+
+for (pkg in c("openxlsx", "gt")) {
   if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
 }
-library(tidyverse)
 
-source("R/config.R")
-source("R/utils.R")
-source("R/load_data.R")
-source("R/normalise.R")
-source("R/compute_index.R")
 source("R/sensitivity_analysis.R")
 
 dir.create("outputs", showWarnings = FALSE)
