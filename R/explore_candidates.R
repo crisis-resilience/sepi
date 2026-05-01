@@ -192,7 +192,7 @@ suggest_pillar <- function(description) {
 #' @return A data frame with one row per candidate variable
 explore_country_candidates <- function(
     country,
-    config        = VERSIONS$v1_equal_geometric$countries,
+    config        = VERSIONS$v1_aligned_equal_geometric$countries,
     sepi_data     = NULL,
     metadata_file = GLOBAL_DATA$metadata_file,
     out_dir       = "outputs",
@@ -412,7 +412,7 @@ explore_all_candidates <- function(all_data,
 #' @return A ggplot object (invisibly)
 plot_candidate_correlation_matrix <- function(
     country,
-    config        = VERSIONS$v1_equal_geometric$countries,
+    config        = VERSIONS$v1_aligned_equal_geometric$countries,
     metadata_file = GLOBAL_DATA$metadata_file,
     out_dir       = "outputs/figures",
     save          = TRUE,
@@ -642,7 +642,7 @@ plot_candidate_correlation_matrix <- function(
 #'
 #' @return Named list of ggplot objects (invisibly)
 plot_all_correlation_matrices <- function(
-    config   = VERSIONS$v1_equal_geometric$countries,
+    config   = VERSIONS$v1_aligned_equal_geometric$countries,
     all_data = NULL,
     ...
 ) {

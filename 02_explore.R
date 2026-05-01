@@ -5,26 +5,24 @@
 #           checking internal consistency, or reviewing v3 conflict weights.
 #
 # Set `version` below to control which pillar/indicator definitions are used
-# for screening and diagnostics.  Use a v1/v2 version for pillar-based checks;
-# use v3_conflict_weighted to audit its se_vars.
+# for screening and diagnostics.  Use v1_aligned_equal_geometric for pillar-based
+# checks; use v3_aligned_conflict_weighted to audit its se_vars.
 # ============================================================================
 
-for (pkg in c("tidyverse", "psych", "rvest", "caret", "jsonlite")) {
+source("R/setup.R")
+
+for (pkg in c("rvest", "caret")) {
   if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
 }
-library(tidyverse)
 
-source("R/config.R")
-source("R/utils.R")
-source("R/load_data.R")
-source("R/normalise.R")
 source("R/screen_indicators.R")
 source("R/explore_candidates.R")
 source("R/diagnostics.R")
-source("R/compute_index.R")
 
 # ── Configure ─────────────────────────────────────────────────────────────────
-version <- VERSIONS$v3_zscore   # ← change to switch version
+# When sourced from run_all.R, .sepi_run_version is set there; otherwise use the
+# version defined below.
+version <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v1_aligned_equal_geometric  # ← change to switch version
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 all_data <- load_all_data(version = version)

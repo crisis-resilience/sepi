@@ -6,6 +6,20 @@ A composite indicator measuring relative socio-economic conditions relevant to p
 
 Open the project in RStudio (`SEPI_R&D.Rproj`) and source the relevant entry point. Required packages are installed automatically.
 
+To run the full pipeline in one go:
+
+```r
+source("run_all.R")
+```
+
+---
+
+## Pipeline Scripts
+
+### `run_all.R` — Master pipeline runner
+
+Runs all six scripts in sequence. Change `active_version` at the top to run the full pipeline for a different version. Scripts 05 and 06 always compare `v1_aligned_equal_geometric` against `v3_aligned_conflict_weighted` regardless of this setting.
+
 ---
 
 ### `01_build_data.R` — Rebuild the merged dataset
@@ -31,7 +45,7 @@ ACLED_PASSWORD=your_acled_api_key
 
 #### ACLED column naming
 
-Conflict columns are produced with a yearly suffix for each year in the configured date range. For example:
+Conflict columns are produced with a yearly suffix for each year in the configured date range:
 
 | Column | Description |
 |--------|-------------|
@@ -40,21 +54,19 @@ Conflict columns are produced with a yearly suffix for each year in the configur
 | `total_fatalities_per_1k_2025` | Fatalities per 1,000 population (2025) |
 | `count_conflicts_events_per_1k_2025` | Conflict events per 1,000 population (2025) |
 
-The same pattern repeats for every year from 2016 to 2025. Version JSON files and visualisations reference the `_2025` columns by default.
+The same pattern repeats for every year from 2016 to 2025.
 
 ---
 
 ### `02_explore.R` — Indicator exploration and screening
 
-Run this when evaluating new indicators, auditing the configured set, or reviewing v3 conflict weights. Set `version` at the top of the script to control which indicator definitions are used (use v1/v2 for pillar-based checks, v3 to audit `se_vars`).
-
-It runs four analysis blocks in sequence:
+Run this when evaluating new indicators, auditing the configured set, or reviewing v3 conflict weights. Set `version` at the top of the script to control which indicator definitions are used.
 
 | Block | What it does |
 |-------|-------------|
 | A. Candidate exploration | Surveys all available variables, cross-references data dictionaries, produces `outputs/candidate_report_{country}.csv` and correlation matrix plots |
 | B. Indicator screening | Validates the configured indicator set against OECD Handbook quality criteria (coverage, variance, collinearity) |
-| C. Internal diagnostics | Missingness, within-pillar Spearman correlations, Cronbach's alpha (requires a v1/v2 version with pillars defined) |
+| C. Internal diagnostics | Missingness, within-pillar Spearman correlations, Cronbach's alpha (requires a version with pillars defined) |
 | D. V3 indicator selection *(optional)* | Runs `select_v3_indicators()` to identify conflict-correlated candidates — uncomment, review output, then update `se_vars` in the JSON |
 
 ---
@@ -67,12 +79,6 @@ The main pipeline. Set `version` at the top and source:
 source("03_run_sepi.R")
 ```
 
-Two optional blocks are included but commented out:
-- **Sensitivity analysis** — leave-one-out indicator sensitivity (`sensitivity_all_countries()`)
-- **Version comparison** — rank correlations across methodology variants (`compare_versions()`)
-
-## Pipeline Steps (`03_run_sepi.R`)
-
 | Step | What it does |
 |------|-------------|
 | 1. Load data | Reads the merged global CSV and splits by country |
@@ -81,49 +87,113 @@ Two optional blocks are included but commented out:
 | 4. Visualisations | Rankings bar chart, pillar heatmap, SEPI-vs-conflict scatter (per country) |
 | 5. Export | Single Excel workbook with all results |
 
+---
+
+### `04_evaluate.R` — Version comparison and criterion validity
+
+Validates a version against external criteria and its robustness variants.
+
+| Section | What it does |
+|---------|-------------|
+| A. Version comparison | Rank correlations across robustness variants declared in the version JSON |
+| B. Criterion validity (IDP) | Spearman rho between SEPI and IOM IDP displacement density (H1: rho < −0.6) |
+| C. Discriminatory capacity | ROC / AUC test: can SEPI identify displacement hotspots? (target: AUC ≥ 0.70) |
+| D. Visualisations (displacement) | Scatter and ROC curve PNGs saved to `outputs/figures/criterion_validity/` |
+| E. Criterion validity (conflict) | Parallel Spearman + AUC tests using ACLED conflict intensity across three time windows |
+
+---
+
+### `05_compare_versions.R` — V1 vs V3 head-to-head comparison
+
+Always compares `v1_aligned_equal_geometric` against `v3_aligned_conflict_weighted` on rank stability, criterion validity (IDP), and discriminatory capacity (AUC). Produces a summary scorecard.
+
+---
+
+### `06_sensitivity_analysis.R` — SA1 and SA2 sensitivity analysis
+
+Always runs for both `v1_aligned_equal_geometric` and `v3_aligned_conflict_weighted`.
+
+| Analysis | What it does |
+|----------|-------------|
+| SA1 (indicator sensitivity) | Drops one indicator per multi-indicator pillar across all combinations; mean SEPI across combos = SA1 score |
+| SA2 (pillar sensitivity) | Drops each of the five pillars in turn; mean SEPI across five runs = SA2 score |
+
+Outputs:
+- `outputs/sensitivity_analysis_comparison.xlsx`
+- `outputs/figures/sensitivity/sensitivity_comparison_<country>.png`
+
+---
+
 ## Project Structure
 
 ```
-SEPI_R&D/
-├── 01_build_data.R         # Rebuild merged global CSV
-├── 02_explore.R            # Indicator exploration and screening
-├── 03_run_sepi.R           # Main pipeline entry point
-├── versions/               # Methodology variants (one JSON per version)
-│   ├── v1_equal_geometric.json
-│   ├── v2_pca_geometric.json
-│   └── v3_conflict_weighted.json
+sepi/
+├── run_all.R                   # Master pipeline runner (runs scripts 01–06 in sequence)
+├── 01_build_data.R             # Rebuild merged global CSV
+├── 02_explore.R                # Indicator exploration and screening
+├── 03_run_sepi.R               # Main pipeline: compute, visualise, export
+├── 04_evaluate.R               # Version comparison and criterion validity
+├── 05_compare_versions.R       # V1 vs V3 head-to-head
+├── 06_sensitivity_analysis.R   # SA1 + SA2 sensitivity analysis
+├── versions/                   # Methodology versions (one JSON per version)
+│   ├── v1_aligned_equal_geometric.json   # Default: equal weights, geometric across pillars
+│   ├── v1_aligned_equal_arithmetic.json  # Variant: arithmetic across pillars
+│   ├── v3_aligned_conflict_weighted.json # Conflict-correlation weighted flat sum
+│   └── _template.json
+├── robustness_checks/          # Robustness variants (referenced from version JSONs)
+│   ├── v1_aligned_zscore.json
+│   ├── v1_aligned_bod.json
+│   ├── v3_aligned_zscore.json
+│   └── v3_aligned_bod.json
 ├── R/
-│   ├── config.R            # Global paths, version loader
-│   ├── utils.R             # Aggregation helpers, labels, ggplot theme
-│   ├── load_data.R         # Data loading and country-specific cleaning
-│   ├── normalise.R         # Min-max / z-score / rank normalisation
-│   ├── compute_index.R     # SEPI computation engine
-│   ├── diagnostics.R       # Data quality checks
-│   ├── screen_indicators.R # Candidate indicator triage
-│   ├── conflict_analysis.R # SEPI–conflict linkage (Spearman correlations)
-│   ├── visualise.R         # Plot generation
-│   ├── export_excel.R      # Excel workbook export
-│   └── build_global_data.R # Merge per-country source files into global CSV
-├── data/                   # Input data (not tracked — see .gitignore)
-├── data_dictionnaries/     # Data dictionaries
-└── outputs/                # Generated plots and Excel results
+│   ├── setup.R                        # Shared package installs + source calls (used by 02–06)
+│   ├── config.R                       # Global paths, version loader
+│   ├── utils.R                        # Aggregation helpers, labels, ggplot theme
+│   ├── load_data.R                    # Data loading and country-specific cleaning
+│   ├── normalise.R                    # Min-max / z-score / rank normalisation
+│   ├── compute_index.R                # SEPI computation engine
+│   ├── sensitivity_analysis.R         # SA1 and SA2 sensitivity functions
+│   ├── criterion_validity_conflict.R  # ACLED-based criterion validity functions
+│   ├── conflict_analysis.R            # SEPI–conflict linkage (Spearman correlations)
+│   ├── diagnostics.R                  # Data quality checks
+│   ├── screen_indicators.R            # Candidate indicator triage
+│   ├── explore_candidates.R           # Candidate exploration and correlation matrices
+│   ├── visualise.R                    # Plot generation
+│   ├── export_excel.R                 # Excel workbook export
+│   └── build_global_data.R            # Merge per-country source files into global CSV
+├── data/                       # Input data (not tracked — see .gitignore)
+├── data_dictionnaries/         # Data dictionaries
+└── outputs/                    # Generated plots and Excel results
 ```
+
+---
 
 ## Version System
 
-SEPI versions are defined as self-contained JSON files in `versions/`. Each file specifies the methodology parameters and full country indicator definitions. To switch versions, change one line in `03_run_sepi.R`:
+SEPI versions are defined as self-contained JSON files in `versions/`. Each file specifies the methodology parameters and full country indicator definitions. To switch versions, change one line in any pipeline script:
 
 ```r
-version <- VERSIONS$v1_equal_geometric   # ← any key in VERSIONS
+version <- VERSIONS$v1_aligned_equal_geometric   # ← any key in VERSIONS
 ```
 
 Adding a new version requires no R code changes — create a new JSON file and it appears automatically as `VERSIONS$<name>`.
 
 | Version | Description |
 |---------|-------------|
-| `v1_equal_geometric` | Arithmetic mean within pillars, geometric mean across, equal weights |
-| `v2_pca_geometric` | PCA-derived weights within pillars, geometric mean across |
-| `v3_conflict_weighted` | Conflict-correlation weighted flat sum |
+| `v1_aligned_equal_geometric` | **Default.** Arithmetic mean within pillars, geometric mean across, equal weights |
+| `v1_aligned_equal_arithmetic` | Arithmetic mean both within and across pillars, equal weights |
+| `v3_aligned_conflict_weighted` | Conflict-correlation weighted flat sum (no pillar structure) |
+
+Robustness variants (declared inside version JSONs, always run alongside their parent):
+
+| Variant | Description |
+|---------|-------------|
+| `v1_aligned_zscore` | v1 with z-score normalisation instead of min-max |
+| `v1_aligned_bod` | v1 with Benefit of the Doubt (DEA) weighting |
+| `v3_aligned_zscore` | v3 with z-score normalisation |
+| `v3_aligned_bod` | v3 with Benefit of the Doubt weighting |
+
+---
 
 ## Outputs
 
@@ -140,7 +210,9 @@ Adding a new version requires no R code changes — create a new JSON file and i
 
 Per country: `rankings_<country>.png`, `pillars_<country>.png`, `sepi_conflict_<country>.png`.
 
-## Methodology (default: v1_equal_geometric)
+---
+
+## Methodology (default: `v1_aligned_equal_geometric`)
 
 1. **Normalisation** — Min-max scaling to [0, 1] with polarity alignment (negative-polarity indicators are inverted so higher always = better).
 2. **Within-pillar aggregation** — Arithmetic mean of normalised indicators (equal indicator weights).
@@ -149,4 +221,4 @@ Per country: `rankings_<country>.png`, `pillars_<country>.png`, `sepi_conflict_<
 
 ## Dependencies
 
-`tidyverse`, `readr`, `psych`, `ggrepel`, `openxlsx`, `purrr`, `rlang`, `jsonlite`, `sf`, `patchwork`, `httr2`
+`tidyverse`, `psych`, `purrr`, `rlang`, `jsonlite`, `ggrepel`, `openxlsx`, `sf`, `patchwork`, `pROC`, `gt`, `rvest`, `caret`, `httr2`

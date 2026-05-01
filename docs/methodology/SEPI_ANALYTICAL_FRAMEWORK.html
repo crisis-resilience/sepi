@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>SEPI — Analytical Framework and Validation</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 24px; color: #1a1a1a; line-height: 1.65; }
+    h1 { font-size: 2em; border-bottom: 2px solid #1a73b4; padding-bottom: 0.3em; color: #1a73b4; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #ddd; padding-bottom: 0.2em; margin-top: 2em; }
+    h3 { font-size: 1.2em; margin-top: 1.6em; color: #333; }
+    h4 { font-size: 1em; margin-top: 1.4em; color: #555; }
+    code { background: #f3f4f6; padding: 0.15em 0.4em; border-radius: 3px; font-size: 0.88em; font-family: 'SFMono-Regular', Consolas, monospace; color: #c7254e; }
+    pre { background: #f3f4f6; padding: 1em 1.2em; border-radius: 6px; overflow-x: auto; border-left: 4px solid #1a73b4; }
+    pre code { background: none; padding: 0; color: inherit; }
+    table { border-collapse: collapse; width: 100%; margin: 1.2em 0; font-size: 0.93em; }
+    th { background: #1a73b4; color: #fff; padding: 8px 12px; text-align: left; }
+    td { border: 1px solid #ddd; padding: 7px 12px; }
+    tr:nth-child(even) { background: #f8f9fa; }
+    blockquote { border-left: 4px solid #1a73b4; margin: 1em 0; padding: 0.5em 1em; background: #f0f7ff; color: #444; }
+    hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+    a { color: #1a73b4; }
+  </style>
+</head>
+<body>
+<h1 id="sepi-analytical-framework-validation">SEPI — Analytical
+Framework &amp; Validation</h1>
+<p>This document consolidates the full methodology for the
+Socio-Economic Peacebuilding Index (SEPI): the baseline construction
+approach, robustness checks, sensitivity analysis, version comparison,
+and criterion validity assessment. It is the single reference for how
+the index is built and how its results are interrogated.</p>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol type="1">
+<li><a href="#baseline-methodology-v1_aligned_equal_geometric">Baseline
+Methodology — <code>v1_aligned_equal_geometric</code></a></li>
+<li><a
+href="#robustness-check-i-z-score-normalisation-v1_aligned_zscore">Robustness
+Check I — Z-Score Normalisation
+(<code>v1_aligned_zscore</code>)</a></li>
+<li><a
+href="#robustness-check-ii-benefit-of-the-doubt-weighting-v1_aligned_bod">Robustness
+Check II — Benefit of the Doubt Weighting
+(<code>v1_aligned_bod</code>)</a></li>
+<li><a href="#sensitivity-analysis">Sensitivity Analysis</a></li>
+<li><a href="#version-comparison-v1-vs-v3">Version Comparison — v1 vs
+v3</a></li>
+<li><a href="#criterion-validity-assessment">Criterion Validity
+Assessment</a></li>
+</ol>
+<hr />
+<h2 id="baseline-methodology-v1_aligned_equal_geometric">1. Baseline
+Methodology — <code>v1_aligned_equal_geometric</code></h2>
+<p>The <strong>Socio-Economic Peacebuilding Index (SEPI)</strong> is a
+composite indicator measuring the structural socio-economic capacity of
+sub-national regions to sustain peace. It is grounded in the
+Humanitarian–Development–Peace Nexus: durable peace requires a
+foundation of socio-economic sufficiency, and structural deficits —
+poverty, food insecurity, poor health access, environmental degradation
+— act as force multipliers for instability.</p>
+<p>SEPI is computed at the <strong>Admin-1 level</strong> for
+<strong>Kenya</strong>, <strong>Somalia</strong>, and <strong>South
+Sudan</strong>. The primary methodology
+(<code>v1_aligned_equal_geometric</code>) uses equal weights within a
+pillar-structured aggregation: indicators are averaged arithmetically
+within each of five pillar domains, then combined into a composite score
+using a geometric mean across pillars. Conflict data is not used in the
+construction of the index; it is used only for criterion validity
+assessment. Scores are relative within each country; a high score means
+a region is performing better than other regions in the same country,
+not that it meets any global standard.</p>
+<hr />
+<h3 id="data-sources">1.1 Data Sources</h3>
+<p>All datasets are harmonised to OCHA COD administrative boundaries.
+Middle Juba (SO) and Abyei (SS) are excluded.</p>
+<table>
+<colgroup>
+<col style="width: 29%" />
+<col style="width: 29%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Source</th>
+<th>Ref. year</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Food Security</td>
+<td>Integrated Food Security Phase Classification (IPC) via HDX
+HAPI</td>
+<td>2024–2025</td>
+</tr>
+<tr>
+<td>Education</td>
+<td>Kenya Population and Housing Census (KE); Somalia Integrated
+Household Budget Survey — SIHBS (SO); National Education Census Report
+(SS)</td>
+<td>2019–2022</td>
+</tr>
+<tr>
+<td>Health</td>
+<td>Government of Kenya / WHO health facility registry (KE); WHO health
+facility database (SO, SS)</td>
+<td>2024–2025</td>
+</tr>
+<tr>
+<td>Income &amp; Livelihoods</td>
+<td>Oxford Poverty &amp; Human Development Initiative — OPHI; Kenya
+National Bureau of Statistics — KNBS (KE); Somalia National Bureau of
+Statistics — SNBS (SO); South Sudan Poverty and Equity Assessment —
+SSNPEA; CLiMIS South Sudan (SS)</td>
+<td>2022–2024</td>
+</tr>
+<tr>
+<td>Accessibility</td>
+<td>Heidelberg Institute for Geoinformation Technology</td>
+<td>2025</td>
+</tr>
+<tr>
+<td>Climate / Environment</td>
+<td>Google Earth Engine Data Catalog</td>
+<td>2023–2024</td>
+</tr>
+<tr>
+<td>Conflict <em>(validation only)</em></td>
+<td>Armed Conflict Location &amp; Event Data — ACLED API</td>
+<td>2016–2025</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="indicator-selection">1.2 Indicator Selection</h3>
+<p>Candidates are reviewed for domain coverage in
+<code>02_explore.R</code> (Block A); pairs with Pearson r &gt; 0.8
+within the same pillar are pruned automatically
+(<code>R/screen_indicators.R</code>). Final lists are set in
+<code>versions/v1_aligned_equal_geometric.json</code>.</p>
+<h4 id="indicators-selected-for-the-sepi">Indicators selected for the
+SEPI</h4>
+<p>KE = Kenya · SO = Somalia · SS = South Sudan. Middle Juba (SO) and
+Abyei (SS) are excluded.</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 29%" />
+<col style="width: 18%" />
+<col style="width: 29%" />
+</colgroup>
+<thead>
+<tr>
+<th>Pillar</th>
+<th>Indicator</th>
+<th>Label</th>
+<th>Countries</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Food Security</td>
+<td><code>pop_frac_3plus</code></td>
+<td>Population in IPC Phase 3+</td>
+<td>KE, SO, SS</td>
+</tr>
+<tr>
+<td>Education</td>
+<td><code>primary_school_net_attendance_total</code></td>
+<td>Primary net attendance (%)</td>
+<td>KE, SO</td>
+</tr>
+<tr>
+<td></td>
+<td><code>net_attendance_total</code></td>
+<td>Secondary net attendance (%)</td>
+<td>KE</td>
+</tr>
+<tr>
+<td></td>
+<td><code>literacy_percent_total</code></td>
+<td>Literacy rate (%)</td>
+<td>SO</td>
+</tr>
+<tr>
+<td></td>
+<td><code>percent_highest_level_secondary_education</code></td>
+<td>Secondary education attainment (%)</td>
+<td>SO</td>
+</tr>
+<tr>
+<td></td>
+<td><code>school_access_pop</code></td>
+<td>Population with school access (%)</td>
+<td>KE, SO, SS</td>
+</tr>
+<tr>
+<td></td>
+<td><code>on_payroll_pct</code></td>
+<td>Teachers on payroll (%)</td>
+<td>SS</td>
+</tr>
+<tr>
+<td></td>
+<td><code>dropout_pct</code></td>
+<td>Student dropout rate (%)</td>
+<td>SS</td>
+</tr>
+<tr>
+<td>Health</td>
+<td><code>healthcare_access_pop</code></td>
+<td>Population with healthcare access (%)</td>
+<td>KE, SO, SS</td>
+</tr>
+<tr>
+<td></td>
+<td><code>health_fac_per_10k_pop</code></td>
+<td>Health facilities per 10,000 pop.</td>
+<td>KE, SO, SS</td>
+</tr>
+<tr>
+<td></td>
+<td><code>hospitals_per_100k_pop</code></td>
+<td>Hospitals per 100,000 pop.</td>
+<td>KE, SO, SS</td>
+</tr>
+<tr>
+<td>Economic</td>
+<td><code>poverty_headcount_pct</code></td>
+<td>Poverty headcount (%)</td>
+<td>KE, SO, SS</td>
+</tr>
+<tr>
+<td></td>
+<td><code>gcp_pc</code></td>
+<td>Gross County Product per capita</td>
+<td>KE</td>
+</tr>
+<tr>
+<td></td>
+<td><code>total_expenditure_usd</code></td>
+<td>Household expenditure (USD)</td>
+<td>SO</td>
+</tr>
+<tr>
+<td></td>
+<td><code>annual_cmb_mean</code></td>
+<td>Avg. min. consumption basket cost</td>
+<td>SS</td>
+</tr>
+<tr>
+<td>Climate</td>
+<td><code>rs_ndvi</code></td>
+<td>NDVI</td>
+<td>KE, SO, SS</td>
+</tr>
+<tr>
+<td></td>
+<td><code>rs_soil_moist</code></td>
+<td>Soil moisture</td>
+<td>KE, SO, SS</td>
+</tr>
+<tr>
+<td></td>
+<td><code>rs_fapar</code></td>
+<td>FAPAR</td>
+<td>KE, SO, SS</td>
+</tr>
+<tr>
+<td></td>
+<td><code>rs_pdsi</code></td>
+<td>Palmer Drought Severity Index</td>
+<td>KE, SO, SS</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="index-construction">1.3 Index Construction</h3>
+<p>The construction follows the four-step summary in README
+§Methodology. Key parameters and imputation rules are:</p>
+<p><strong>Normalisation:</strong></p>
+<pre><code>I_norm = (x − min(x)) / (max(x) − min(x))</code></pre>
+<p>Negative-polarity indicators are inverted:
+<code>I_aligned = 1 − I_norm</code>.</p>
+<p><strong>Within-pillar aggregation</strong> (arithmetic mean, equal
+indicator weights):</p>
+<pre><code>Pillar_score_p = (1 / n_p) × Σⱼ I_aligned_j</code></pre>
+<p><strong>Across-pillar aggregation</strong> (geometric mean, equal
+pillar weights, floor = 0.001):</p>
+<pre><code>SEPI = exp( (1/5) × Σₚ log( max(Pillar_score_p, 0.001) ) )</code></pre>
+<p>The floor prevents log(0). The geometric mean penalises uneven pillar
+profiles — a very low score on one pillar cannot be fully compensated by
+high scores on others.</p>
+<hr />
+<h3 id="key-limitations">1.4 Key Limitations</h3>
+<ul>
+<li><strong>Relative scores.</strong> Rankings are within-country. A
+high score means better than peers, not good in absolute terms.</li>
+<li><strong>Equal weights assume equal pillar importance.</strong> No
+empirical basis is used to prioritise one pillar domain over another;
+this is a deliberate transparency trade-off but may not reflect
+context-specific realities.</li>
+<li><strong>Geometric mean penalises extreme pillar deficits.</strong> A
+region with a near-zero score on a single pillar will have a very low
+composite score regardless of performance elsewhere. This is a design
+feature, not a bug, but should be interpreted carefully.</li>
+<li><strong>Temporal lag.</strong> Household surveys (SNBS, SIHBS) are
+typically 1–2 years old. Rapid security shifts may outpace the
+data.</li>
+<li><strong>Manual selection step.</strong> The indicator list for each
+pillar was chosen by analyst review of domain-coverage plots.
+Differences across countries reflect data availability and contextual
+judgement.</li>
+<li><strong>Data gaps in fragile areas.</strong> Inaccessibility can
+affect survey precision in conflict-affected zones.</li>
+</ul>
+<hr />
+<h2 id="robustness-check-i-z-score-normalisation-v1_aligned_zscore">2.
+Robustness Check I — Z-Score Normalisation
+(<code>v1_aligned_zscore</code>)</h2>
+<p>This check tests whether SEPI district rankings are sensitive to the
+choice of normalisation method — specifically, whether replacing bounded
+min-max scaling with z-score standardisation materially reorders
+districts.</p>
+<hr />
+<h3 id="what-differs-from-the-baseline">2.1 What Differs from the
+Baseline</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Dimension</th>
+<th><code>v1_aligned_equal_geometric</code></th>
+<th><code>v1_aligned_zscore</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Normalisation</td>
+<td>Min-max [0, 1]</td>
+<td>Z-score (mean 0, sd 1)</td>
+</tr>
+<tr>
+<td>Within-pillar aggregation</td>
+<td>Arithmetic mean of min-max values → pillar score in [0, 1]</td>
+<td>Arithmetic mean of z-scores → pillar score potentially negative</td>
+</tr>
+<tr>
+<td>Across-pillar aggregation</td>
+<td>Geometric mean with floor 0.001</td>
+<td>Geometric mean with floor 0.001</td>
+</tr>
+<tr>
+<td>Weighting</td>
+<td>Equal</td>
+<td>Equal</td>
+</tr>
+<tr>
+<td>Output score range</td>
+<td>Effectively [0, 1]</td>
+<td>Above-zero; effective maximum depends on z-score distribution</td>
+</tr>
+<tr>
+<td>Indicator inputs</td>
+<td>Same</td>
+<td>Same</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<hr />
+<h3 id="index-construction-1">2.2 Index Construction</h3>
+<p>Each indicator is standardised independently
+(<code>z = (x − mean) / sd</code>; zero-variance indicators → 0).
+Negative-polarity indicators have their z-score negated. Pillar
+aggregation is otherwise identical to the baseline:</p>
+<pre><code>Pillar_score_p = (1 / n_p) × Σⱼ (sign_j × z_j)
+SEPI = exp( (1/5) × Σₚ log( max(Pillar_score_p, 0.001) ) )</code></pre>
+<p>Because z-scores can be negative, the within-pillar mean can be
+negative too; the floor clips these before the geometric mean. Scores
+are <strong>not numerically comparable</strong> to the baseline;
+rankings are directly comparable.</p>
+<hr />
+<h3 id="key-limitations-1">2.3 Key Limitations</h3>
+<ul>
+<li><strong>Effective output scale shifts.</strong> Pillar scores based
+on z-scores can be near the floor (0.001) for weak performers, making
+scores harder to communicate externally. Baseline scores are preferred
+for reporting.</li>
+<li><strong>Sensitivity to small samples.</strong> With few districts
+(South Sudan has 10), z-scores are more volatile than min-max values — a
+single district shifting its raw value changes the mean and SD for the
+whole country.</li>
+</ul>
+<hr />
+<h2
+id="robustness-check-ii-benefit-of-the-doubt-weighting-v1_aligned_bod">3.
+Robustness Check II — Benefit of the Doubt Weighting
+(<code>v1_aligned_bod</code>)</h2>
+<p>This check tests whether SEPI district rankings are sensitive to the
+choice of weighting method — specifically, whether replacing equal
+pillar weights with data-driven, endogenous Benefit of the Doubt (BoD)
+weights materially reorders districts.</p>
+<p>All data sources, administrative boundaries, and exclusion criteria
+are identical to the baseline. Only the weighting method and aggregation
+structure differ.</p>
+<hr />
+<h3 id="what-differs-from-the-baseline-1">3.1 What Differs from the
+Baseline</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Dimension</th>
+<th><code>v1_aligned_equal_geometric</code></th>
+<th><code>v1_aligned_bod</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Indicator inputs</td>
+<td>Full pillar indicator sets (2–4 indicators per pillar)</td>
+<td>One representative indicator per pillar
+(<code>pillar_map</code>)</td>
+</tr>
+<tr>
+<td>Within-pillar aggregation</td>
+<td>Arithmetic mean</td>
+<td>BoD LP (optimises per-district weights across 5 pillar
+representatives)</td>
+</tr>
+<tr>
+<td>Across-pillar aggregation</td>
+<td>Geometric mean</td>
+<td>None (single composite from LP)</td>
+</tr>
+<tr>
+<td>Weighting</td>
+<td>Equal (1/n per indicator, 1/5 per pillar)</td>
+<td>Benefit of the Doubt — endogenous, per-district</td>
+</tr>
+<tr>
+<td>Conflict variable role</td>
+<td>Not used</td>
+<td>Not used</td>
+</tr>
+<tr>
+<td>Number of inputs to LP</td>
+<td>N/A</td>
+<td>5 (one per pillar, all countries)</td>
+</tr>
+<tr>
+<td>Normalisation</td>
+<td>Min-max [0, 1]</td>
+<td>Min-max [0, 1]</td>
+</tr>
+<tr>
+<td>Missing value handling</td>
+<td>Mean imputation (Kenya &amp; Somalia); listwise (South Sudan)</td>
+<td>Same</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="indicator-structure">3.2 Indicator Structure</h3>
+<p>One representative per pillar is used to prevent the LP
+over-exploiting within-pillar redundancy. Representatives are drawn from
+the v1 indicator pool.</p>
+<table>
+<colgroup>
+<col style="width: 38%" />
+<col style="width: 19%" />
+<col style="width: 19%" />
+<col style="width: 23%" />
+</colgroup>
+<thead>
+<tr>
+<th>Pillar</th>
+<th>KE</th>
+<th>SO</th>
+<th>SS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Food Security</td>
+<td><code>pop_frac_3plus</code></td>
+<td><code>pop_frac_3plus</code></td>
+<td><code>pop_frac_3plus</code></td>
+</tr>
+<tr>
+<td>Education</td>
+<td><code>net_attendance_total</code></td>
+<td><code>primary_school_net_attendance_total</code></td>
+<td><code>school_access_pop</code></td>
+</tr>
+<tr>
+<td>Health</td>
+<td><code>health_fac_per_10k_pop</code></td>
+<td><code>health_fac_per_10k_pop</code></td>
+<td><code>healthcare_access_pop</code></td>
+</tr>
+<tr>
+<td>Economic</td>
+<td><code>gcp_pc</code></td>
+<td><code>poverty_headcount_pct</code></td>
+<td><code>poverty_headcount_pct</code></td>
+</tr>
+<tr>
+<td>Climate</td>
+<td><code>rs_ndvi</code></td>
+<td><code>rs_ndvi</code></td>
+<td><code>rs_ndvi</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="index-construction-2">3.3 Index Construction</h3>
+<p>Missing value handling, normalisation, and polarity alignment are
+identical to the baseline. After alignment, BoD is solved per
+district:</p>
+<p><strong>BoD optimisation:</strong> For each district <em>c</em>, the
+score is the solution to:</p>
+<pre><code>maximise    Σᵢ wᵢ · xᵢ_c
+
+subject to  Σᵢ wᵢ · xᵢ_d  ≤  1    for all districts d
+            Σᵢ wᵢ          =  1
+            Lᵢ  ≤  wᵢ  ≤  Uᵢ      for all pillars i</code></pre>
+<p>A score of <strong>1.0</strong> means the district lies on the
+efficiency frontier. The LP is solved once per district using the
+<code>lpSolve</code> package (<code>R/compute_index.R</code>, function
+<code>compute_bod_sepi()</code>).</p>
+<p><strong>Weight bounds</strong> follow JRC Scenario I (±50% of equal
+weight):</p>
+<pre><code>Equal weight (5 pillars):  w_equal = 0.200
+Lower bound:               L = 0.200 × 0.5 = 0.100
+Upper bound:               U = 0.200 × 1.5 = 0.300</code></pre>
+<p>The flexibility parameter is set via
+<code>bod_weight_flex = 0.5</code> in
+<code>robustness_checks/v1_aligned_bod.json</code>.</p>
+<p><strong>Ranking:</strong> districts are ranked by BoD score within
+each country (rank 1 = strongest conditions).</p>
+<hr />
+<h3 id="key-limitations-2">3.4 Key Limitations</h3>
+<ul>
+<li><strong>Relative scores.</strong> A BoD score of 1 means frontier
+status relative to other districts in the same country — not
+well-performing in absolute terms.</li>
+<li><strong>Reduced indicator set.</strong> The BoD uses one
+representative per pillar rather than the full v1 indicator sets. The
+representatives are drawn from the v1 indicator pool, so no additional
+data is required, but within-pillar variation is not captured.</li>
+<li><strong>Weight bounds are a choice.</strong> The ±50% flexibility
+(Scenario I) is a reasonable default; tighter bounds push toward equal
+weighting while looser bounds allow a district to assign near-zero
+weight to a pillar where it performs poorly.</li>
+<li><h2
+id="small-samples.-south-sudan-has-only-10-districts-lp-solutions-may-be-less-stable."><strong>Small
+samples.</strong> South Sudan has only 10 districts; LP solutions may be
+less stable.</h2></li>
+</ul>
+<h3 id="references">3.5 References</h3>
+<ul>
+<li>Cherchye, L., Moesen, W., Rogge, N., &amp; Van Puyenbroeck, T.
+(2007). An introduction to ‘benefit of the doubt’ composite indicators.
+<em>Social Indicators Research</em>, 82(1), 111–145.</li>
+<li>Cherchye, L., Knox Lovell, C. A., Moesen, W., &amp; Van Puyenbroeck,
+T. (2007). One market, one number? A composite indicator assessment of
+EU internal market dynamics. <em>European Economic Review</em>, 51(3),
+749–779.</li>
+<li>JRC-COIN (2019). Step 5: Weighting methods (I) — Benefit of the
+Doubt (DEA approach). 17th JRC Annual Training on Composite Indicators
+&amp; Scoreboards, Ispra.</li>
+</ul>
+<hr />
+<h2 id="sensitivity-analysis">4. Sensitivity Analysis</h2>
+<h3
+id="versions-tested-v1_aligned_equal_geometric-v3_aligned_conflict_weighted">Versions
+tested: <code>v1_aligned_equal_geometric</code> ·
+<code>v3_aligned_conflict_weighted</code></h3>
+<hr />
+<h3 id="two-sensitivity-tests">4.1 Two Sensitivity Tests</h3>
+<h4
+id="sa1-indicator-level-sensitivity-leave-one-indicator-out-per-pillar">SA1
+— Indicator-Level Sensitivity (Leave-One-Indicator-Out per Pillar)</h4>
+<p>For each pillar with two or more indicators, every possible
+combination of dropping exactly one indicator from that pillar is
+considered simultaneously across all eligible pillars. The SEPI is
+recomputed for each combination using the full methodology of the
+respective version. The <strong>SA1 score</strong> for each region is
+the arithmetic mean of SEPI scores across all combinations.</p>
+<p>Food security is excluded from SA1 in all three countries because it
+contains only one indicator (<code>pop_frac_3plus</code>); removing it
+would eliminate the pillar entirely, which is the subject of SA2.</p>
+<p><strong>Eligible pillars and combination counts (aligned
+versions):</strong></p>
+<table>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 55%" />
+<col style="width: 29%" />
+</colgroup>
+<thead>
+<tr>
+<th>Country</th>
+<th>Eligible pillars (n indicators)</th>
+<th>SA1 combinations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Kenya</td>
+<td>Education (3) × Health (3) × Economic (2) × Climate (4)</td>
+<td>72</td>
+</tr>
+<tr>
+<td>Somalia</td>
+<td>Education (4) × Health (3) × Economic (2) × Climate (4)</td>
+<td>96</td>
+</tr>
+<tr>
+<td>South Sudan</td>
+<td>Education (3) × Health (3) × Economic (2) × Climate (4)</td>
+<td>72</td>
+</tr>
+</tbody>
+</table>
+<p>A region whose SA1 mean score is close to its baseline SEPI has a
+stable ranking. A large deviation signals dependence on one or a few
+particular indicators.</p>
+<h4 id="sa2-pillar-level-sensitivity-leave-one-pillar-out">SA2 —
+Pillar-Level Sensitivity (Leave-One-Pillar-Out)</h4>
+<p>Each of the five pillar domains (Education, Health, Food Security,
+Economic, Climate) is dropped entirely, and the SEPI is recomputed using
+only the remaining four. This produces five alternative SEPI scores per
+region. The <strong>SA2 score</strong> is the arithmetic mean of these
+five scores.</p>
+<p>For V1, dropping a pillar removes all its indicators from
+within-pillar aggregation and reduces the geometric mean to four terms.
+For V3, dropping a pillar removes all its <code>se_vars</code> from the
+flat weighted sum, and conflict-correlation weights are re-estimated on
+the reduced indicator set.</p>
+<p>A region whose SA2 mean is close to its baseline performs
+consistently across all pillar combinations. A large deviation
+identifies which pillar most drives the region’s ranking.</p>
+<h3 id="versions-compared">4.2 Versions Compared</h3>
+<table>
+<colgroup>
+<col style="width: 12%" />
+<col style="width: 36%" />
+<col style="width: 36%" />
+<col style="width: 15%" />
+</colgroup>
+<thead>
+<tr>
+<th>Version</th>
+<th>Within-pillar aggregation</th>
+<th>Across-pillar aggregation</th>
+<th>Weighting</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>v1_aligned_equal_geometric</code></td>
+<td>Arithmetic mean</td>
+<td>Geometric mean</td>
+<td>Equal (1/n per indicator, 1/5 per pillar)</td>
+</tr>
+<tr>
+<td><code>v3_aligned_conflict_weighted</code></td>
+<td>Flat weighted sum</td>
+<td>None (single composite)</td>
+<td>Conflict-correlation: |Pearson r(indicator, conflict events per
+1k)|</td>
+</tr>
+</tbody>
+</table>
+<p>Both versions use the same curated, country-aligned indicator sets
+from the indicator alignment exercise, ensuring that differences in
+sensitivity reflect methodology rather than indicator selection.</p>
+<h3 id="computation">4.3 Computation</h3>
+<p>All runs use the same normalisation and polarity alignment as the
+baseline. For V3, conflict-correlation weights are re-estimated from
+scratch for each reduced indicator set. The SA1/SA2 score per region is
+an unweighted arithmetic mean across all valid runs; regions dropped due
+to missing data (V3 South Sudan listwise deletion) contribute only their
+available runs.</p>
+<p>Outputs (<code>outputs/sensitivity_analysis_comparison.xlsx</code>
+and per-country PNG comparison tables) are produced by
+<code>06_sensitivity_analysis.R</code>.</p>
+<hr />
+<h2 id="version-comparison-v1-vs-v3">5. Version Comparison — v1 vs
+v3</h2>
+<p><code>05_compare_versions.R</code> evaluates whether <strong>v1
+(equal-weighted geometric mean)</strong> or <strong>v3
+(conflict-weighted)</strong> should be adopted as the primary SEPI
+method. It assesses each version on three dimensions.</p>
+<hr />
+<h3 id="a.-rank-stability">5.1 A. Rank Stability</h3>
+<p>Two robustness variants are computed for each version family:</p>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>What changes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>z-score</td>
+<td>Min-max normalisation replaced by z-score</td>
+</tr>
+<tr>
+<td>BoD</td>
+<td>Equal weights replaced by Benefit of Doubt (DEA) weights</td>
+</tr>
+</tbody>
+</table>
+<p>Three metrics compare each variant against its primary version:</p>
+<ul>
+<li><strong>Spearman ρ</strong> — overall rank-order agreement (1 =
+identical ordering)</li>
+<li><strong>MARS</strong> — Mean Absolute Rank Shift: average number of
+places an ADM1 moves across variants</li>
+<li><strong>Top-5 stability</strong> — % of the 5 worst-off ADM1s in the
+primary version that remain in the bottom 5 in each variant</li>
+</ul>
+<p><em>Thresholds:</em> ρ ≥ 0.90 / MARS ≤ 1.5 / Top-5 ≥ 80% =
+stable.</p>
+<hr />
+<h3 id="b.-criterion-validity">5.2 B. Criterion Validity</h3>
+<p><strong>Hypothesis:</strong> lower SEPI (more deprived) → higher IDP
+displacement density.</p>
+<p>Spearman ρ between the SEPI score and within-country min-max
+normalised IDP displacement fraction (IOM DTM data, ADM1 level). Target:
+ρ &lt; −0.60.</p>
+<hr />
+<h3 id="c.-discriminatory-capacity-auc">5.3 C. Discriminatory Capacity
+(AUC)</h3>
+<p>ADM1 units above the median IDP displacement density are labelled
+hotspots. A ROC curve tests whether lower SEPI predicts hotspot status.
+AUC ≥ 0.70 = acceptable; ≥ 0.80 = good.</p>
+<hr />
+<h3 id="outputs">5.4 Outputs</h3>
+<ul>
+<li><code>outputs/figures/compare_versions/scorecard.png</code> —
+colour-coded scorecard (all metrics)</li>
+<li><code>outputs/figures/compare_versions/ranks_v{1|3}_{country}.png</code>
+— unit-level rank tables showing every ADM1’s rank across primary
+version and both variants, with shift (Δ) highlighted where |Δ| ≥ 3</li>
+</ul>
+<hr />
+<h2 id="criterion-validity-assessment">6. Criterion Validity
+Assessment</h2>
+<p>Two complementary external criteria test whether SEPI scores
+correlate with outcomes the index should theoretically predict:</p>
+<ol type="1">
+<li><strong>IOM IDP origin data</strong> — displacement density at ADM1
+level (primary test).</li>
+<li><strong>ACLED conflict intensity</strong> — events per 1,000
+population, aggregated over three time windows (2016–2025, 2021–2025,
+2025).</li>
+</ol>
+<p>Each criterion is examined with a Spearman rank correlation (H₁:
+negative relationship) and a ROC/AUC hotspot test. Results for both
+criteria feed the version-comparison scorecard in
+<code>outputs/figures/version_comparison.png</code>.</p>
+<hr />
+<h3 id="external-criterion-i-iom-idp-origin-data">6.1 External Criterion
+I: IOM IDP Origin Data</h3>
+<h4 id="hypothesis">Hypothesis</h4>
+<p><strong>H₁:</strong> There is a negative correlation between the SEPI
+score and displacement density at the ADM1 level within each
+country.</p>
+<p><strong>Logic:</strong> Regions with the lowest socio-economic
+performance should, all else equal, generate higher rates of population
+flight. A higher SEPI score reflects better relative performance; a
+higher displacement fraction reflects greater population flight. The
+hypothesis predicts a <strong>negative</strong> relationship.</p>
+<h4 id="criterion-variable">Criterion Variable</h4>
+<p><strong>Producer:</strong> International Organization for Migration
+(IOM) — Displacement Tracking Matrix (DTM)</p>
+<p><strong>Variable:</strong> <code>pop_frac_idps</code> — the fraction
+of a region’s population recorded as IDP <em>origins</em> (percentage of
+regional population that has fled).</p>
+<p><strong>Unit of analysis — origins, not destinations:</strong> The
+data records the ADM1 region <em>from which</em> IDPs were displaced.
+This is the analytically correct frame for push-factor validity: the
+question is whether low SEPI scores predict where people flee
+<em>from</em>, not where they end up.</p>
+<p><strong>Why displacement density rather than raw counts:</strong> Raw
+counts are confounded by population size. The population fraction
+normalises for size and measures the <em>intensity</em> of displacement
+pressure.</p>
+<h4 id="data-sources-by-country">Data Sources by Country</h4>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr>
+<th>Country</th>
+<th>Dataset</th>
+<th>Source</th>
+<th>Reference period</th>
+<th>ADM1 units</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>South Sudan</td>
+<td>South Sudan — Emergency Event Tracking, Jan–Dec 2025</td>
+<td>IOM DTM</td>
+<td>Full year 2025</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Kenya</td>
+<td>Kenya — IOM DTM (from API)</td>
+<td>IOM DTM via HDX HAPI</td>
+<td>Full year 2024</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Somalia</td>
+<td>Somalia — Emergency Trend Tracking Dataset (since Feb 2025)</td>
+<td>IOM DTM</td>
+<td>March 2026 snapshot</td>
+<td>6</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Kenya IDP data is from 2024 (full calendar year); South Sudan and
+Somalia fall within 2025–2026. Within-country analysis mitigates the
+temporal mismatch.</p>
+</blockquote>
+<h4 id="analytical-method">Analytical Method</h4>
+<p>All analysis is within-country. <code>pop_frac_idps</code> is min-max
+normalised within each country before correlation, to control for the
+different time windows. <strong>Spearman’s ρ</strong> is used
+(displacement data is right-skewed; hypothesis is ordinal). Threshold: ρ
+&lt; −0.6 = strong negative result. Hotspot = ADM1 above within-country
+median displacement; AUC ≥ 0.70 = acceptable, ≥ 0.80 = good.</p>
+<p>Outputs:
+<code>outputs/figures/criterion_validity_scatter_displacement.png</code>
+(scatter, one panel per country) and
+<code>outputs/figures/criterion_validity_roc_displacement.png</code>
+(ROC curves; Somalia omitted, n = 6 below minimum). Produced by
+<code>04_evaluate.R</code> Sections B–D.</p>
+<hr />
+<h3 id="external-criterion-ii-acled-conflict-intensity">6.2 External
+Criterion II: ACLED Conflict Intensity</h3>
+<p><strong>H₁:</strong> SEPI scores are negatively correlated with
+conflict events per 1,000 population within each country. Conflict data
+covers all ADM1 units (no coverage gaps) and spans 2016–2025, enabling
+multi-window tests.</p>
+<p><strong>Criterion variable:</strong>
+<code>count_conflicts_events_per_1k</code> summed over the window
+(Battles, Explosions/Remote violence, Violence against civilians).
+Within-country min-max normalisation is applied for visualisation;
+Spearman’s ρ and AUC are rank-based and unaffected.</p>
+<h4 id="time-windows">Time Windows</h4>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Window key</th>
+<th>Years</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>conflict_10y</code></td>
+<td>2016–2025</td>
+<td>Longest available history; closest to “structural” conflict
+intensity</td>
+</tr>
+<tr>
+<td><code>conflict_5y</code></td>
+<td>2021–2025</td>
+<td>Medium-term — captures recent intensity regime</td>
+</tr>
+<tr>
+<td><code>conflict_2025</code></td>
+<td>2025 only</td>
+<td>Contemporaneous snapshot; highest sensitivity to current
+dynamics</td>
+</tr>
+</tbody>
+</table>
+<h4 id="endogeneity-note">Endogeneity Note</h4>
+<p><code>v1_aligned_equal_geometric</code> does not use ACLED data in
+construction, so the conflict criterion tests are fully independent for
+the primary methodology. When <code>v3_conflict_weighted</code> is
+included in the version comparison, its 2025 conflict window test is
+circular by construction (v3 weights are derived from 2025 ACLED data)
+and reported only as a consistency check; its 5y and 10y windows remain
+partially informative.</p>
+<p>Per window and country: sum
+<code>count_conflicts_events_per_1k_YYYY</code>, join to SEPI on
+<code>adm1_pcode</code>, compute Spearman ρ and ROC/AUC (hotspot = above
+within-country median). Same thresholds as the displacement
+criterion.</p>
+<p>Outputs: scatter and ROC PNGs for each window
+(<code>criterion_validity_{scatter|roc}_conflict_{10y|5y|2025}.png</code>)
+saved to <code>outputs/figures/</code>. Produced by
+<code>04_evaluate.R</code> Section E; helpers shared with
+<code>05_compare_versions.R</code> via
+<code>R/criterion_validity_conflict.R</code>.</p>
+<hr />
+<h3 id="limitations-criterion-validity">6.3 Limitations (Criterion
+Validity)</h3>
+<ul>
+<li><strong>Time window mismatch.</strong> IDP data covers different
+periods for each country. Within-country normalisation mitigates but
+does not eliminate this as a confound.</li>
+<li><strong>Security–socioeconomics decoupling.</strong> In active
+conflict settings, acute security events can generate large displacement
+from regions that score relatively well on structural indicators. SEPI
+is not designed to predict displacement driven primarily by armed group
+activity.</li>
+<li><strong>IDP origin data coverage.</strong> DTM coverage is uneven
+across ADM1 units; ADM1 units absent from the IDP dataset are excluded,
+so the validation sample may not be representative.</li>
+<li><strong>Small n in Somalia.</strong> Six observations are
+insufficient for a meaningful rank correlation test. The Somalia result
+should not be cited as evidence for or against the index’s validity
+until more comprehensive displacement data is available.</li>
+<li><strong>Endogeneity in v3 conflict window (comparison
+only).</strong> When <code>v3_conflict_weighted</code> is included in
+the version comparison, the 2025 conflict window test is circular by
+construction; only the 5y and 10y windows provide independent signal for
+that version.</li>
+</ul>
+</body>
+</html>

@@ -1,43 +1,38 @@
 # ============================================================================
-# 04_evaluate.R — Sensitivity analysis and version comparison
+# 04_evaluate.R — Version comparison and criterion validity
 # ============================================================================
-# Run when: validating a new or active version, checking indicator influence,
-#           comparing rank stability across methodologies.
+# Run when: validating a new or active version, checking criterion validity,
+#           comparing rank stability across robustness variants.
+#           For full sensitivity analysis (SA1/SA2), use 06_sensitivity_analysis.R.
 #
 # Prerequisites: 03_run_sepi.R should have been run for the same version
 #               to confirm outputs before running evaluation.
 #
 # Set `version` below to the version under evaluation.
-# The baseline version for comparison is set in Section B.
+# The baseline version for comparison is set in Section A.
 # ============================================================================
 
-for (pkg in c("tidyverse", "psych", "purrr", "rlang", "jsonlite")) {
+source("R/setup.R")
+
+for (pkg in c("pROC", "ggrepel")) {
   if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
 }
-library(tidyverse)
+library(ggrepel)
 
-source("R/config.R")
-source("R/utils.R")
-source("R/load_data.R")
-source("R/normalise.R")
-source("R/compute_index.R")
 source("R/visualise.R")
 source("R/criterion_validity_conflict.R")
 
 # ── Configure + Load ──────────────────────────────────────────────────────────
-version      <- VERSIONS$v3_aligned_conflict_weighted  # ← change to switch version under evaluation
+# When sourced from run_all.R, .sepi_run_version is set there; otherwise use the
+# version defined below.
+version      <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v3_aligned_conflict_weighted  # ← change to switch version under evaluation
 all_data     <- load_all_data(version = version)
 sepi_results <- compute_all_countries(all_data, version)
 
-# ── A. Sensitivity analysis ───────────────────────────────────────────────────
-# Leave-one-out: how much do SEPI ranks change when each indicator is removed?
-sensitivity_results <- sensitivity_all_countries(all_data, version)
-
-# ── B. Version comparison ─────────────────────────────────────────────────────
+# ── A. Version comparison ─────────────────────────────────────────────────────
 # Compare SEPI ranks between the active version and its robustness variants.
 # Variants are declared in each version's JSON as "robustness_variants".
-# Changing `version` at the top of this script automatically picks the right
-# robustness checks — no edits needed here.
+# Changing `version` at the top automatically picks the right robustness checks.
 
 variant_keys <- c(version$name, version$robustness_variants)
 
@@ -60,7 +55,7 @@ if (length(variant_keys) < 2) {
 
 cat("\nDone.\n")
 
-# ── C. Criterion Validity — IOM IDP origin correlation ────────────────────────
+# ── B. Criterion Validity — IOM IDP origin correlation ────────────────────────
 # Tests H1: SEPI is negatively correlated with IDP displacement density
 # (pop_frac_idps) within each country. Uses Spearman's rho on within-country
 # min-max normalised displacement fractions to handle differing time windows.
@@ -139,15 +134,13 @@ for (country in names(sepi_results)) {
 
 cat("Criterion validity check complete.\n")
 
-# ── D. Discriminatory Capacity — ROC / Hotspot Test ───────────────────────────
+# ── C. Discriminatory Capacity — ROC / Hotspot Test ───────────────────────────
 # Binary complement to the Spearman test (Section C).
 # Question: can SEPI discriminate displacement hotspots from non-hotspots?
 # Hotspot definition: ADM1 units above the within-country median pop_frac_idps.
 # Predictor: SEPI score (lower SEPI -> higher P(hotspot), so direction = ">").
-# Requires idp_data from Section C — run sections together.
+# Requires idp_data from Section B — run sections together.
 # Somalia (n = 6) is skipped: too few units for a meaningful ROC curve.
-
-if (!requireNamespace("pROC", quietly = TRUE)) install.packages("pROC")
 
 cat("\n========================================\n")
 cat(" Discriminatory Capacity — ROC / Hotspot Test\n")
@@ -238,17 +231,14 @@ for (country in names(sepi_results)) {
 
 cat("Discriminatory capacity check complete.\n")
 
-# ── E. Criterion Validity Visualisations (Displacement) ──────────────────────
+# ── D. Criterion Validity Visualisations (Displacement) ──────────────────────
 # Two figures saved to outputs/figures/criterion_validity/:
 #   criterion_validity_scatter_displacement_{version}.png — SEPI vs displacement density
 #   criterion_validity_roc_displacement_{version}.png     — ROC curves for Kenya & South Sudan
 
-# ---- E1. Scatter: SEPI vs displacement density --------------------------------
+# ---- D1. Scatter: SEPI vs displacement density --------------------------------
 
 scatter_plots <- list()
-
-if (!requireNamespace("ggrepel", quietly = TRUE)) install.packages("ggrepel")
-library(ggrepel)
 
 for (country in names(sepi_results)) {
   cc          <- COUNTRY_CODE_MAP[[country]]
@@ -301,7 +291,7 @@ if (length(scatter_plots) > 0) {
   message("Saved: ", scatter_path)
 }
 
-# ---- E2. ROC curves for countries with sufficient n -------------------------
+# ---- D2. ROC curves for countries with sufficient n -------------------------
 
 roc_plots    <- list()
 roc_countries <- list()
@@ -378,7 +368,7 @@ if (length(roc_plots) > 0) {
 
 cat("Displacement visualisations complete.\n")
 
-# ── F. Criterion Validity — ACLED Conflict Intensity ──────────────────────────
+# ── E. Criterion Validity — ACLED Conflict Intensity ──────────────────────────
 # Parallel test using conflict events per 1k population (ACLED) as the
 # external criterion, over three time windows:
 #   "10y"  -> 2016–2025
