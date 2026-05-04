@@ -294,9 +294,26 @@ build_indicator_scores_sheet <- function(wb, sepi_results, config, version, head
     out_cols <- c(id_cols, norm_cols)
     out_cols <- out_cols[out_cols %in% names(res)]
 
-    res |>
+    out <- res |>
       dplyr::select(dplyr::all_of(out_cols)) |>
       dplyr::mutate(country = country_label(country), .before = 1)
+
+    # The _norm columns stored during computation are polarity-flipped (higher = better
+    # for the index). Re-invert negative-polarity indicators here so the displayed value
+    # matches the raw indicator direction (e.g. Unity shows ~1.0 for pop_frac_3plus,
+    # not ~0.0). This does not affect any SEPI calculations.
+    if (!is.null(cc$pillars)) {
+      for (p in cc$pillars) {
+        for (i in seq_along(p$indicators)) {
+          if (isTRUE(p$polarity[i] == -1)) {
+            nc <- paste0(p$indicators[i], "_norm")
+            if (nc %in% names(out)) out[[nc]] <- 1 - out[[nc]]
+          }
+        }
+      }
+    }
+
+    out
   })
 
   combined <- dplyr::bind_rows(rows)
