@@ -26,7 +26,7 @@ sepi_results     <- compute_all_countries(all_data, version)
 conflict_results <- analyse_conflict_all(sepi_results, version)
 
 generate_all_plots(sepi_results, conflict_results, version)
-export_sepi_excel(sepi_results, version)
+export_sepi_excel_raw_subindicators(sepi_results, version)
 
 if (isTRUE(version$conflict_weighting)) {
   render_polarity_audits(sepi_results, version)
