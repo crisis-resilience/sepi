@@ -46,7 +46,7 @@ export_sepi_excel <- function(sepi_results,
 
 # ---- Sheet builders --------------------------------------------------------
 
-build_readme_sheet <- function(wb, version, header_style) {
+build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FALSE) {
 
   norm_label <- switch(version$normalisation,
     min_max = "Min-Max (0-1)",
@@ -183,10 +183,18 @@ build_readme_sheet <- function(wb, version, header_style) {
           "Contains the final SEPI score, pillar-level scores, and relative rank ",
           "for each Admin-1 region, for all countries."
         ),
-        paste0(
-          "Shows the normalised (0-1) and direction-adjusted score for each ",
-          "individual indicator. This helps explain why a region scored high or low."
-        ),
+        if (raw_subindicators) {
+          paste0(
+            "Shows the original (non-normalised) raw value for each sub-indicator, ",
+            "taken directly from the source data. This helps explain why a region ",
+            "scored high or low in its original units."
+          )
+        } else {
+          paste0(
+            "Shows the normalised (0-1) and direction-adjusted score for each ",
+            "individual indicator. This helps explain why a region scored high or low."
+          )
+        },
         paste0(
           "Documents the pillar-indicator mapping, polarity, and effective weight ",
           "assigned to each indicator, providing full transparency on the index construction."
@@ -463,6 +471,57 @@ build_indicator_details_sheet <- function(wb, sepi_results, version, config, hea
                          cols = seq_len(ncol(rows)), widths = "auto")
 }
 
+build_raw_subindicator_scores_sheet <- function(wb, sepi_results, config, version, header_style) {
+
+  rows <- purrr::imap(sepi_results, function(res, country) {
+    cc <- config[[country]]
+    id_cols <- cc$id_cols
+
+    sepi_vars <- get_sepi_vars(cc)
+    raw_cols  <- sepi_vars[sepi_vars %in% names(res)]
+
+    out <- res |>
+      dplyr::select(dplyr::all_of(c(id_cols, raw_cols))) |>
+      dplyr::mutate(country = country_label(country), .before = 1)
+
+    # pop_frac_3plus: NA means not monitored by IPC (no acute crisis) → display as 0
+    if ("pop_frac_3plus" %in% names(out)) {
+      out[["pop_frac_3plus"]][is.na(out[["pop_frac_3plus"]])] <- 0
+    }
+
+    out
+  })
+
+  combined <- dplyr::bind_rows(rows)
+
+  openxlsx::addWorksheet(wb, "Indicator_Scores")
+  openxlsx::writeData(wb, "Indicator_Scores", combined, headerStyle = header_style)
+  openxlsx::setColWidths(wb, "Indicator_Scores",
+                         cols = seq_len(ncol(combined)), widths = "auto")
+}
+
+export_sepi_excel_raw_subindicators <- function(sepi_results,
+                                                version,
+                                                output_dir = "outputs") {
+
+  fname <- file.path(output_dir, "sepi_results_v1_aligned_equal_weighted_raw_subindicators.xlsx")
+  wb    <- openxlsx::createWorkbook()
+
+  header_style <- openxlsx::createStyle(textDecoration = "bold")
+
+  build_readme_sheet(wb, version, header_style, raw_subindicators = TRUE)
+  build_results_sheet(wb, sepi_results, version$countries, version, header_style)
+  build_raw_subindicator_scores_sheet(wb, sepi_results, version$countries, version, header_style)
+  build_indicator_details_sheet(wb, sepi_results, version, version$countries, header_style)
+  build_conflict_data_sheet(wb, header_style)
+  build_pillar_descriptions_sheet(wb, header_style)
+
+  dir.create(tempdir(), recursive = TRUE, showWarnings = FALSE)
+  openxlsx::saveWorkbook(wb, fname, overwrite = TRUE)
+  cat("Exported:", fname, "\n")
+  invisible(fname)
+}
+
 build_pillar_descriptions_sheet <- function(wb, header_style) {
   pillar_desc <- data.frame(
     Pillar = c(
@@ -504,6 +563,13 @@ build_conflict_data_sheet <- function(wb, header_style) {
   }
 
   conflict_data <- utils::read.csv(conflict_path, stringsAsFactors = FALSE, check.names = FALSE)
+
+  # Convert per-1k rate columns to per-100k (multiply by 100, round to 2 dp, rename)
+  per1k_cols <- grep("_per_1k_", names(conflict_data), value = TRUE)
+  for (col in per1k_cols) {
+    conflict_data[[col]] <- round(conflict_data[[col]] * 100, 2)
+  }
+  names(conflict_data) <- gsub("_per_1k_", "_per_100k_", names(conflict_data))
 
   openxlsx::addWorksheet(wb, "Conflict_Data")
   openxlsx::writeData(wb, "Conflict_Data", conflict_data, headerStyle = header_style)
