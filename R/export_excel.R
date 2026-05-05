@@ -46,7 +46,7 @@ export_sepi_excel <- function(sepi_results,
 
 # ---- Sheet builders --------------------------------------------------------
 
-build_readme_sheet <- function(wb, version, header_style) {
+build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FALSE) {
 
   norm_label <- switch(version$normalisation,
     min_max = "Min-Max (0-1)",
@@ -183,10 +183,18 @@ build_readme_sheet <- function(wb, version, header_style) {
           "Contains the final SEPI score, pillar-level scores, and relative rank ",
           "for each Admin-1 region, for all countries."
         ),
-        paste0(
-          "Shows the normalised (0-1) and direction-adjusted score for each ",
-          "individual indicator. This helps explain why a region scored high or low."
-        ),
+        if (raw_subindicators) {
+          paste0(
+            "Shows the original (non-normalised) raw value for each sub-indicator, ",
+            "taken directly from the source data. This helps explain why a region ",
+            "scored high or low in its original units."
+          )
+        } else {
+          paste0(
+            "Shows the normalised (0-1) and direction-adjusted score for each ",
+            "individual indicator. This helps explain why a region scored high or low."
+          )
+        },
         paste0(
           "Documents the pillar-indicator mapping, polarity, and effective weight ",
           "assigned to each indicator, providing full transparency on the index construction."
@@ -501,7 +509,7 @@ export_sepi_excel_raw_subindicators <- function(sepi_results,
 
   header_style <- openxlsx::createStyle(textDecoration = "bold")
 
-  build_readme_sheet(wb, version, header_style)
+  build_readme_sheet(wb, version, header_style, raw_subindicators = TRUE)
   build_results_sheet(wb, sepi_results, version$countries, version, header_style)
   build_raw_subindicator_scores_sheet(wb, sepi_results, version$countries, version, header_style)
   build_indicator_details_sheet(wb, sepi_results, version, version$countries, header_style)

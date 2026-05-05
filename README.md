@@ -197,14 +197,17 @@ Robustness variants (declared inside version JSONs, always run alongside their p
 
 ## Outputs
 
-### Excel workbook: `outputs/sepi_results_<version>.xlsx`
+### Excel workbook: `outputs/sepi_results_v1_aligned_equal_weighted_raw_subindicators.xlsx` (main export)
 
 | Sheet | Contents |
 |-------|----------|
 | README | Methodology description and interpretation guide |
 | SEPI_Results | Pillar scores, SEPI score, and rank per region (all countries) |
-| Indicator_Scores | Normalised (0–1), polarity-adjusted indicator values per region |
+| Indicator_Scores | Original raw sub-indicator values per region in source units |
 | Indicator_Details | Pillar–indicator mapping, polarity, labels, and effective weights |
+| Conflict_Data | Conflict event and fatality counts per Admin-1, including rates per 100,000 population |
+| Pillar_Descriptions | Description of each pillar and its dashboard name |
+
 
 ### Plots (PNG)
 
