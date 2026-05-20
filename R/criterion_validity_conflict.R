@@ -1,5 +1,5 @@
 # ============================================================================
-# Criterion Validity — Conflict Criterion (ACLED events per 1k population)
+# Criterion Validity — Conflict Criterion (ACLED events per 100k population)
 # ============================================================================
 # Parallel criterion-validity test to the IDP displacement analysis in
 # Section C–E of `04_evaluate.R`. The criterion variable here is the count of
@@ -349,14 +349,16 @@ prepare_conflict_match <- function(sepi_df, window) {
 build_conflict_scatter_panel <- function(country, merged) {
   if (nrow(merged) < 3) return(NULL)
 
-  rho   <- round(stats::cor(merged$sepi, merged$conflict_norm,
+  merged$conflict_per_100k <- merged$conflict_per_1k * 100
+
+  rho   <- round(stats::cor(merged$sepi, merged$conflict_per_100k,
                             method = "spearman", use = "complete.obs"), 3)
-  p_val <- stats::cor.test(merged$sepi, merged$conflict_norm,
+  p_val <- stats::cor.test(merged$sepi, merged$conflict_per_100k,
                            method = "spearman", exact = FALSE)$p.value
   p_lab <- if (p_val < 0.001) "p < 0.001" else sprintf("p = %.3f", p_val)
 
   ggplot2::ggplot(merged,
-      ggplot2::aes(x = sepi, y = conflict_norm, label = adm1_name)) +
+      ggplot2::aes(x = sepi, y = conflict_per_100k, label = adm1_name)) +
     ggplot2::geom_point(colour = "#d95f0e", size = 2.5, alpha = 0.8) +
     ggrepel::geom_text_repel(size = 2.8, colour = "grey30",
                              max.overlaps = 15, seed = 42) +
@@ -368,7 +370,7 @@ build_conflict_scatter_panel <- function(country, merged) {
     ggplot2::labs(
       title = country_label(country),
       x     = "SEPI score (higher = better)",
-      y     = "Conflict events per 1k\n(within-country normalised)"
+      y     = "Conflict events per 100,000 population"
     ) +
     theme_sepi()
 }
@@ -424,12 +426,23 @@ save_conflict_scatter <- function(sepi_results, window, version) {
   }
   if (length(panels) == 0) return(invisible(NULL))
 
+  footnote <- paste(
+    "ρ (rho): Spearman rank correlation coefficient between SEPI and conflict intensity.",
+    "A negative value indicates that higher socio-economic conditions are associated with fewer conflict events.",
+    "Conflict data: ACLED events per 100,000 population | summed over the displayed time window."
+  )
+
   combined <- patchwork::wrap_plots(panels, ncol = length(panels)) +
     patchwork::plot_annotation(
       title    = sprintf("Criterion Validity: SEPI vs Conflict Intensity — %s",
                           conflict_window_label(window)),
-      subtitle = "Spearman rank correlation | ACLED events per 1k population | matched ADM1 units",
-      theme    = theme_sepi()
+      subtitle = "Spearman rank correlation | ACLED events per 100k population | matched ADM1 units",
+      caption  = footnote,
+      theme    = theme_sepi() +
+        ggplot2::theme(
+          plot.caption          = ggplot2::element_text(size = 7, colour = "grey40", hjust = 0),
+          plot.caption.position = "plot"
+        )
     )
 
   path <- versioned_output_path(
@@ -437,9 +450,50 @@ save_conflict_scatter <- function(sepi_results, window, version) {
     sprintf("criterion_validity_scatter_conflict_%s", window)
   )
   ggplot2::ggsave(path, combined,
-                  width = length(panels) * 5, height = 6, dpi = 150)
+                  width = length(panels) * 5, height = 6.5, dpi = 150)
   message("Saved: ", path)
   invisible(path)
+}
+
+#' Save per-country scatter figures, each with 3 window panels (10y, 5y, 2025) side by side.
+save_conflict_scatter_by_country <- function(sepi_results, version,
+                                              windows = c("10y", "5y", "2025")) {
+  conflict_footnote <- paste(
+    "ρ (rho): Spearman rank correlation coefficient between SEPI and conflict intensity.",
+    "A negative value indicates that higher socio-economic conditions are associated with fewer conflict events.",
+    "Conflict data: ACLED events per 100,000 population | summed over the displayed time window."
+  )
+
+  for (country in names(sepi_results)) {
+    panels <- list()
+    for (w in windows) {
+      merged <- prepare_conflict_match(sepi_results[[country]], w)
+      p <- build_conflict_scatter_panel(country, merged)
+      if (!is.null(p)) {
+        panels[[w]] <- p + ggplot2::labs(title = conflict_window_label(w))
+      }
+    }
+    if (length(panels) == 0) next
+
+    combined <- patchwork::wrap_plots(panels, ncol = length(panels)) +
+      patchwork::plot_annotation(
+        title    = paste("Criterion Validity: SEPI vs Conflict Intensity —", country_label(country)),
+        subtitle = "Spearman rank correlation | ACLED events per 100,000 population | matched ADM1 units",
+        caption  = conflict_footnote,
+        theme    = theme_sepi() +
+          ggplot2::theme(
+            plot.caption          = ggplot2::element_text(size = 7, colour = "grey40", hjust = 0),
+            plot.caption.position = "plot"
+          )
+      )
+
+    path <- versioned_output_path(
+      version, "figures", "criterion_validity",
+      paste0("criterion_validity_scatter_conflict_", country)
+    )
+    ggplot2::ggsave(path, combined, width = length(panels) * 5, height = 6.5, dpi = 150)
+    message("Saved: ", path)
+  }
 }
 
 #' Save a ROC figure for a single window (panels per country with n >= min_n).
