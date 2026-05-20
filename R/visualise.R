@@ -42,8 +42,6 @@ plot_sepi_rankings <- function(sepi_result, country_name,
                                version = NULL, version_name = NULL,
                                save = TRUE) {
   label <- country_label(country_name)
-  subtitle <- if (!is.null(version_name)) version_name else
-    attr(sepi_result, "sepi_version")
 
   df <- sepi_result |>
     dplyr::select(adm1_name, sepi) |>
@@ -54,10 +52,9 @@ plot_sepi_rankings <- function(sepi_result, country_name,
   p <- ggplot(df, aes(x = sepi, y = adm1_name)) +
     geom_col(fill = "#2c7fb8", width = 0.7) +
     labs(
-      title    = paste("SEPI Scores:", label),
-      subtitle = subtitle,
-      x = "SEPI Score (higher = better socio-economic conditions)",
-      y = NULL
+      title = paste("SEPI Scores:", label),
+      x     = "SEPI Score (higher = better socio-economic conditions)",
+      y     = NULL
     ) +
     scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
     theme_sepi()
@@ -114,11 +111,17 @@ plot_pillar_heatmap <- function(sepi_result, country_name,
                          limits = c(0, 1), na.value = "grey80",
                          name = "Score\n(higher = better)") +
     labs(
-      title = paste("Pillar Scores:", label),
-      x = NULL, y = NULL
+      title   = paste("Pillar Scores:", label),
+      x       = NULL,
+      y       = NULL,
+      caption = "Scores are normalised to a 0–1 scale. Higher values indicate better socio-economic conditions.\nConflict column (where shown) is inverted so that higher values indicate lower conflict intensity."
     ) +
     theme_sepi() +
-    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+    theme(
+      axis.text.x   = element_text(angle = 35, hjust = 1),
+      plot.caption  = element_text(size = 7, colour = "grey40", hjust = 0),
+      legend.title  = element_text(margin = margin(b = 16))
+    )
 
   if (save) {
     n_regions <- dplyr::n_distinct(df_long$adm1_name)
@@ -172,10 +175,12 @@ plot_sepi_vs_conflict <- function(conflict_result, country_name,
     labs(
       title    = paste("SEPI vs Conflict:", label),
       subtitle = rho_label,
-      x = "SEPI Score",
-      y = gsub("_", " ", y_var)
+      x        = "SEPI Score",
+      y        = "Conflict Events 2025 (count)",
+      caption  = "ρ (rho): Spearman rank correlation coefficient, measuring the monotonic relationship between SEPI scores and conflict events.\nValues range from -1 (perfect negative) to +1 (perfect positive); values closer to -1 indicate that higher socio-economic conditions are associated with fewer conflict events."
     ) +
-    theme_sepi()
+    theme_sepi() +
+    theme(plot.caption = element_text(size = 7, colour = "grey40", hjust = 0))
 
   if (save) {
     fname <- versioned_output_path(version, "figures", "sepi_conflict",
