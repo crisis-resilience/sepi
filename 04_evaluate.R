@@ -25,7 +25,7 @@ source("R/criterion_validity_conflict.R")
 # ── Configure + Load ──────────────────────────────────────────────────────────
 # When sourced from run_all.R, .sepi_run_version is set there; otherwise use the
 # version defined below.
-version      <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v3_aligned_conflict_weighted  # ← change to switch version under evaluation
+version      <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v1_aligned_equal_geometric  # ← change to switch version under evaluation
 all_data     <- load_all_data(version = version)
 sepi_results <- compute_all_countries(all_data, version)
 
@@ -289,6 +289,28 @@ if (length(scatter_plots) > 0) {
   )
   ggsave(scatter_path, combined_scatter, width = 15, height = 6, dpi = 150)
   message("Saved: ", scatter_path)
+
+  # Per-country individual scatter plots with footnote
+  displacement_footnote <- paste0(
+    "ρ (rho): Spearman rank correlation coefficient between SEPI and IDP displacement density.\n",
+    "A negative value indicates higher socio-economic conditions are associated with lower displacement.\n",
+    "Displacement data: IOM DTM origin-based tracking | within-country min-max normalised."
+  )
+  for (country in names(scatter_plots)) {
+    p_single <- scatter_plots[[country]] +
+      labs(caption = displacement_footnote) +
+      theme(
+        plot.caption          = element_text(size = 7, colour = "grey40", hjust = 0,
+                                             margin = margin(t = 6)),
+        plot.caption.position = "plot"
+      )
+    single_path <- versioned_output_path(
+      version, "figures", "criterion_validity",
+      paste0("criterion_validity_scatter_displacement_", country)
+    )
+    ggsave(single_path, p_single, width = 7, height = 6.5, dpi = 150)
+    message("Saved: ", single_path)
+  }
 }
 
 # ---- D2. ROC curves for countries with sufficient n -------------------------
@@ -433,5 +455,7 @@ for (window in conflict_windows) {
   save_conflict_scatter(sepi_results, window, version)
   save_conflict_roc(sepi_results, window, version, min_n = MIN_N_ROC)
 }
+
+save_conflict_scatter_by_country(sepi_results, version)
 
 cat("\nConflict criterion validity check complete.\n")
