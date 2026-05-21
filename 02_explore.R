@@ -2,11 +2,11 @@
 # 02_explore.R — Indicator exploration, screening, and diagnostics
 # ============================================================================
 # Run when: evaluating new indicators, auditing the configured indicator set,
-#           checking internal consistency, or reviewing v3 conflict weights.
+#           checking internal consistency, or reviewing v2 conflict weights.
 #
 # Set `version` below to control which pillar/indicator definitions are used
-# for screening and diagnostics.  Use v1_aligned_equal_geometric for pillar-based
-# checks; use v3_aligned_conflict_weighted to audit its se_vars.
+# for screening and diagnostics.  Use v1_equal_geometric for pillar-based
+# checks; use v2_conflict_weighted to audit its se_vars.
 # ============================================================================
 
 source("R/setup.R")
@@ -22,7 +22,7 @@ source("R/diagnostics.R")
 # ── Configure ─────────────────────────────────────────────────────────────────
 # When sourced from run_all.R, .sepi_run_version is set there; otherwise use the
 # version defined below.
-version <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v1_aligned_equal_geometric  # ← change to switch version
+version <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v1_equal_geometric  # ← change to switch version
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 all_data <- load_all_data(version = version)
@@ -46,8 +46,8 @@ screening_results <- screen_all_countries(all_data, version)
 cat("\n--- Running internal diagnostics ---\n")
 diagnostics <- run_all_diagnostics(all_data, version)
 
-# ── D. [OPTIONAL] V3 indicator selection ──────────────────────────────────────
-# Run once, review output, then update se_vars in versions/v3_conflict_weighted.json.
-# v3_selection <- select_v3_indicators(all_data, version)
+# ── D. [OPTIONAL] v2 indicator selection ──────────────────────────────────────
+# Run once, review output, then update se_vars in versions/v2_conflict_weighted.json.
+# v2_selection <- select_v2_indicators(all_data, version)
 
 cat("\nDone.\n")

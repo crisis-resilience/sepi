@@ -1,8 +1,9 @@
 {
-  "name": "v1_aligned_zscore",
-  "description": "Robustness check: v1_aligned_equal_geometric with z-score normalisation instead of min-max",
+  "name": "v1_equal_geometric",
+  "description": "Equal weights — arithmetic mean within pillars, geometric mean across pillars — with curated country-specific indicator sets from the indicator alignment exercise",
+  "robustness_variants": ["v1_zscore", "v1_bod"],
   "methodology": {
-    "normalisation": "z_score",
+    "normalisation": "min_max",
     "within_pillar_agg": "arithmetic",
     "across_pillar_agg": "geometric",
     "weighting": "equal",

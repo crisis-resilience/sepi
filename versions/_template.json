@@ -1,7 +1,7 @@
 {
   "_comment": "SEPI Version Template — Copy this file, rename it, and fill in the values below.",
   "_comment_naming": "File name should match the 'name' field, e.g. v4_my_method.json",
-  "_comment_structure": "Two structures are supported: pillar-based (v1/v2 style) and conflict-weighted flat (v3 style). Delete the section you do not need from each country block.",
+  "_comment_structure": "Two structures are supported: pillar-based (v1/v2 style) and conflict-weighted flat (v2 style). Delete the section you do not need from each country block.",
 
   "name": "vN_SHORT_NAME",
   "description": "Brief description of the methodology",

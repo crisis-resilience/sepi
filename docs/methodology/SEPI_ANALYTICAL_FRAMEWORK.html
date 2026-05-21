@@ -196,25 +196,25 @@ the index is built and how its results are interrogated.</p>
 <hr />
 <h2 id="table-of-contents">Table of Contents</h2>
 <ol type="1">
-<li><a href="#baseline-methodology-v1_aligned_equal_geometric">Baseline
-Methodology — <code>v1_aligned_equal_geometric</code></a></li>
+<li><a href="#baseline-methodology-v1_equal_geometric">Baseline
+Methodology — <code>v1_equal_geometric</code></a></li>
 <li><a
-href="#robustness-check-i-z-score-normalisation-v1_aligned_zscore">Robustness
+href="#robustness-check-i-z-score-normalisation-v1_zscore">Robustness
 Check I — Z-Score Normalisation
-(<code>v1_aligned_zscore</code>)</a></li>
+(<code>v1_zscore</code>)</a></li>
 <li><a
-href="#robustness-check-ii-benefit-of-the-doubt-weighting-v1_aligned_bod">Robustness
+href="#robustness-check-ii-benefit-of-the-doubt-weighting-v1_bod">Robustness
 Check II — Benefit of the Doubt Weighting
-(<code>v1_aligned_bod</code>)</a></li>
+(<code>v1_bod</code>)</a></li>
 <li><a href="#sensitivity-analysis">Sensitivity Analysis</a></li>
-<li><a href="#version-comparison-v1-vs-v3">Version Comparison — v1 vs
-v3</a></li>
+<li><a href="#version-comparison-v1-vs-v2">Version Comparison — v1 vs
+v2</a></li>
 <li><a href="#criterion-validity-assessment">Criterion Validity
 Assessment</a></li>
 </ol>
 <hr />
-<h2 id="baseline-methodology-v1_aligned_equal_geometric">1. Baseline
-Methodology — <code>v1_aligned_equal_geometric</code></h2>
+<h2 id="baseline-methodology-v1_equal_geometric">1. Baseline
+Methodology — <code>v1_equal_geometric</code></h2>
 <p>The <strong>Socio-Economic Peacebuilding Index (SEPI)</strong> is a
 composite indicator measuring the structural socio-economic capacity of
 sub-national regions to sustain peace. It is grounded in the
@@ -225,7 +225,7 @@ poverty, food insecurity, poor health access, environmental degradation
 <p>SEPI is computed at the <strong>Admin-1 level</strong> for
 <strong>Kenya</strong>, <strong>Somalia</strong>, and <strong>South
 Sudan</strong>. The primary methodology
-(<code>v1_aligned_equal_geometric</code>) uses equal weights within a
+(<code>v1_equal_geometric</code>) uses equal weights within a
 pillar-structured aggregation: indicators are averaged arithmetically
 within each of five pillar domains, then combined into a composite score
 using a geometric mean across pillars. Conflict data is not used in the
@@ -301,7 +301,7 @@ SSNPEA; CLiMIS South Sudan (SS)</td>
 <code>02_explore.R</code> (Block A); pairs with Pearson r &gt; 0.8
 within the same pillar are pruned automatically
 (<code>R/screen_indicators.R</code>). Final lists are set in
-<code>versions/v1_aligned_equal_geometric.json</code>.</p>
+<code>versions/v1_equal_geometric.json</code>.</p>
 <h4 id="indicators-selected-for-the-sepi">Indicators selected for the
 SEPI</h4>
 <p>KE = Kenya · SO = Somalia · SS = South Sudan. Middle Juba (SO) and
@@ -479,9 +479,9 @@ judgement.</li>
 affect survey precision in conflict-affected zones.</li>
 </ul>
 <hr />
-<h2 id="robustness-check-i-z-score-normalisation-v1_aligned_zscore">2.
+<h2 id="robustness-check-i-z-score-normalisation-v1_zscore">2.
 Robustness Check I — Z-Score Normalisation
-(<code>v1_aligned_zscore</code>)</h2>
+(<code>v1_zscore</code>)</h2>
 <p>This check tests whether SEPI district rankings are sensitive to the
 choice of normalisation method — specifically, whether replacing bounded
 min-max scaling with z-score standardisation materially reorders
@@ -498,8 +498,8 @@ Baseline</h3>
 <thead>
 <tr>
 <th>Dimension</th>
-<th><code>v1_aligned_equal_geometric</code></th>
-<th><code>v1_aligned_zscore</code></th>
+<th><code>v1_equal_geometric</code></th>
+<th><code>v1_zscore</code></th>
 </tr>
 </thead>
 <tbody>
@@ -562,9 +562,9 @@ whole country.</li>
 </ul>
 <hr />
 <h2
-id="robustness-check-ii-benefit-of-the-doubt-weighting-v1_aligned_bod">3.
+id="robustness-check-ii-benefit-of-the-doubt-weighting-v1_bod">3.
 Robustness Check II — Benefit of the Doubt Weighting
-(<code>v1_aligned_bod</code>)</h2>
+(<code>v1_bod</code>)</h2>
 <p>This check tests whether SEPI district rankings are sensitive to the
 choice of weighting method — specifically, whether replacing equal
 pillar weights with data-driven, endogenous Benefit of the Doubt (BoD)
@@ -584,8 +584,8 @@ Baseline</h3>
 <thead>
 <tr>
 <th>Dimension</th>
-<th><code>v1_aligned_equal_geometric</code></th>
-<th><code>v1_aligned_bod</code></th>
+<th><code>v1_equal_geometric</code></th>
+<th><code>v1_bod</code></th>
 </tr>
 </thead>
 <tbody>
@@ -709,7 +709,7 @@ Lower bound:               L = 0.200 × 0.5 = 0.100
 Upper bound:               U = 0.200 × 1.5 = 0.300</code></pre>
 <p>The flexibility parameter is set via
 <code>bod_weight_flex = 0.5</code> in
-<code>robustness_checks/v1_aligned_bod.json</code>.</p>
+<code>robustness_checks/v1_bod.json</code>.</p>
 <p><strong>Ranking:</strong> districts are ranked by BoD score within
 each country (rank 1 = strongest conditions).</p>
 <hr />
@@ -747,9 +747,9 @@ Doubt (DEA approach). 17th JRC Annual Training on Composite Indicators
 <hr />
 <h2 id="sensitivity-analysis">4. Sensitivity Analysis</h2>
 <h3
-id="versions-tested-v1_aligned_equal_geometric-v3_aligned_conflict_weighted">Versions
-tested: <code>v1_aligned_equal_geometric</code> ·
-<code>v3_aligned_conflict_weighted</code></h3>
+id="versions-tested-v1_equal_geometric-v2_conflict_weighted">Versions
+tested: <code>v1_equal_geometric</code> ·
+<code>v2_conflict_weighted</code></h3>
 <hr />
 <h3 id="two-sensitivity-tests">4.1 Two Sensitivity Tests</h3>
 <h4
@@ -809,7 +809,7 @@ region. The <strong>SA2 score</strong> is the arithmetic mean of these
 five scores.</p>
 <p>For V1, dropping a pillar removes all its indicators from
 within-pillar aggregation and reduces the geometric mean to four terms.
-For V3, dropping a pillar removes all its <code>se_vars</code> from the
+For v2, dropping a pillar removes all its <code>se_vars</code> from the
 flat weighted sum, and conflict-correlation weights are re-estimated on
 the reduced indicator set.</p>
 <p>A region whose SA2 mean is close to its baseline performs
@@ -833,13 +833,13 @@ identifies which pillar most drives the region’s ranking.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>v1_aligned_equal_geometric</code></td>
+<td><code>v1_equal_geometric</code></td>
 <td>Arithmetic mean</td>
 <td>Geometric mean</td>
 <td>Equal (1/n per indicator, 1/5 per pillar)</td>
 </tr>
 <tr>
-<td><code>v3_aligned_conflict_weighted</code></td>
+<td><code>v2_conflict_weighted</code></td>
 <td>Flat weighted sum</td>
 <td>None (single composite)</td>
 <td>Conflict-correlation: |Pearson r(indicator, conflict events per
@@ -852,19 +852,19 @@ from the indicator alignment exercise, ensuring that differences in
 sensitivity reflect methodology rather than indicator selection.</p>
 <h3 id="computation">4.3 Computation</h3>
 <p>All runs use the same normalisation and polarity alignment as the
-baseline. For V3, conflict-correlation weights are re-estimated from
+baseline. For v2, conflict-correlation weights are re-estimated from
 scratch for each reduced indicator set. The SA1/SA2 score per region is
 an unweighted arithmetic mean across all valid runs; regions dropped due
-to missing data (V3 South Sudan listwise deletion) contribute only their
+to missing data (v2 South Sudan listwise deletion) contribute only their
 available runs.</p>
 <p>Outputs (<code>outputs/sensitivity_analysis_comparison.xlsx</code>
 and per-country PNG comparison tables) are produced by
 <code>06_sensitivity_analysis.R</code>.</p>
 <hr />
-<h2 id="version-comparison-v1-vs-v3">5. Version Comparison — v1 vs
-v3</h2>
+<h2 id="version-comparison-v1-vs-v2">5. Version Comparison — v1 vs
+v2</h2>
 <p><code>05_compare_versions.R</code> evaluates whether <strong>v1
-(equal-weighted geometric mean)</strong> or <strong>v3
+(equal-weighted geometric mean)</strong> or <strong>v2
 (conflict-weighted)</strong> should be adopted as the primary SEPI
 method. It assesses each version on three dimensions.</p>
 <hr />
@@ -907,13 +907,7 @@ displacement density.</p>
 normalised IDP displacement fraction (IOM DTM data, ADM1 level). Target:
 ρ &lt; −0.60.</p>
 <hr />
-<h3 id="c.-discriminatory-capacity-auc">5.3 C. Discriminatory Capacity
-(AUC)</h3>
-<p>ADM1 units above the median IDP displacement density are labelled
-hotspots. A ROC curve tests whether lower SEPI predicts hotspot status.
-AUC ≥ 0.70 = acceptable; ≥ 0.80 = good.</p>
-<hr />
-<h3 id="outputs">5.4 Outputs</h3>
+<h3 id="outputs">5.3 Outputs</h3>
 <ul>
 <li><code>outputs/figures/compare_versions/scorecard.png</code> —
 colour-coded scorecard (all metrics)</li>
@@ -934,8 +928,8 @@ population, aggregated over three time windows (2016–2025, 2021–2025,
 2025).</li>
 </ol>
 <p>Each criterion is examined with a Spearman rank correlation (H₁:
-negative relationship) and a ROC/AUC hotspot test. Results for both
-criteria feed the version-comparison scorecard in
+negative relationship). Results for both criteria feed the
+version-comparison scorecard in
 <code>outputs/figures/version_comparison.png</code>.</p>
 <hr />
 <h3 id="external-criterion-i-iom-idp-origin-data">6.1 External Criterion
@@ -1016,14 +1010,11 @@ temporal mismatch.</p>
 normalised within each country before correlation, to control for the
 different time windows. <strong>Spearman’s ρ</strong> is used
 (displacement data is right-skewed; hypothesis is ordinal). Threshold: ρ
-&lt; −0.6 = strong negative result. Hotspot = ADM1 above within-country
-median displacement; AUC ≥ 0.70 = acceptable, ≥ 0.80 = good.</p>
+&lt; −0.6 = strong negative result.</p>
 <p>Outputs:
 <code>outputs/figures/criterion_validity_scatter_displacement.png</code>
-(scatter, one panel per country) and
-<code>outputs/figures/criterion_validity_roc_displacement.png</code>
-(ROC curves; Somalia omitted, n = 6 below minimum). Produced by
-<code>04_evaluate.R</code> Sections B–D.</p>
+(scatter, one panel per country). Produced by
+<code>04_evaluate.R</code> Sections B–C.</p>
 <hr />
 <h3 id="external-criterion-ii-acled-conflict-intensity">6.2 External
 Criterion II: ACLED Conflict Intensity</h3>
@@ -1035,7 +1026,7 @@ multi-window tests.</p>
 <code>count_conflicts_events_per_1k</code> summed over the window
 (Battles, Explosions/Remote violence, Violence against civilians).
 Within-country min-max normalisation is applied for visualisation;
-Spearman’s ρ and AUC are rank-based and unaffected.</p>
+Spearman’s ρ is rank-based and unaffected.</p>
 <h4 id="time-windows">Time Windows</h4>
 <table>
 <colgroup>
@@ -1071,22 +1062,21 @@ dynamics</td>
 </tbody>
 </table>
 <h4 id="endogeneity-note">Endogeneity Note</h4>
-<p><code>v1_aligned_equal_geometric</code> does not use ACLED data in
+<p><code>v1_equal_geometric</code> does not use ACLED data in
 construction, so the conflict criterion tests are fully independent for
-the primary methodology. When <code>v3_conflict_weighted</code> is
+the primary methodology. When <code>v2_conflict_weighted</code> is
 included in the version comparison, its 2025 conflict window test is
-circular by construction (v3 weights are derived from 2025 ACLED data)
+circular by construction (v2 weights are derived from 2025 ACLED data)
 and reported only as a consistency check; its 5y and 10y windows remain
 partially informative.</p>
 <p>Per window and country: sum
 <code>count_conflicts_events_per_1k_YYYY</code>, join to SEPI on
-<code>adm1_pcode</code>, compute Spearman ρ and ROC/AUC (hotspot = above
-within-country median). Same thresholds as the displacement
-criterion.</p>
-<p>Outputs: scatter and ROC PNGs for each window
-(<code>criterion_validity_{scatter|roc}_conflict_{10y|5y|2025}.png</code>)
+<code>adm1_pcode</code>, compute Spearman ρ. Threshold: ρ &lt; −0.6 =
+strong negative result.</p>
+<p>Outputs: scatter PNGs for each window
+(<code>criterion_validity_scatter_conflict_{10y|5y|2025}.png</code>)
 saved to <code>outputs/figures/</code>. Produced by
-<code>04_evaluate.R</code> Section E; helpers shared with
+<code>04_evaluate.R</code> Section D; helpers shared with
 <code>05_compare_versions.R</code> via
 <code>R/criterion_validity_conflict.R</code>.</p>
 <hr />
@@ -1108,8 +1098,8 @@ so the validation sample may not be representative.</li>
 insufficient for a meaningful rank correlation test. The Somalia result
 should not be cited as evidence for or against the index’s validity
 until more comprehensive displacement data is available.</li>
-<li><strong>Endogeneity in v3 conflict window (comparison
-only).</strong> When <code>v3_conflict_weighted</code> is included in
+<li><strong>Endogeneity in v2 conflict window (comparison
+only).</strong> When <code>v2_conflict_weighted</code> is included in
 the version comparison, the 2025 conflict window test is circular by
 construction; only the 5y and 10y windows provide independent signal for
 that version.</li>

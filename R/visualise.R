@@ -42,8 +42,6 @@ plot_sepi_rankings <- function(sepi_result, country_name,
                                version = NULL, version_name = NULL,
                                save = TRUE) {
   label <- country_label(country_name)
-  subtitle <- if (!is.null(version_name)) version_name else
-    attr(sepi_result, "sepi_version")
 
   df <- sepi_result |>
     dplyr::select(adm1_name, sepi) |>
@@ -54,10 +52,9 @@ plot_sepi_rankings <- function(sepi_result, country_name,
   p <- ggplot(df, aes(x = sepi, y = adm1_name)) +
     geom_col(fill = "#2c7fb8", width = 0.7) +
     labs(
-      title    = paste("SEPI Scores:", label),
-      subtitle = subtitle,
-      x = "SEPI Score (higher = better socio-economic conditions)",
-      y = NULL
+      title = paste("SEPI Scores:", label),
+      x     = "SEPI Score (higher = better socio-economic conditions)",
+      y     = NULL
     ) +
     scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
     theme_sepi()
@@ -77,7 +74,7 @@ plot_pillar_heatmap <- function(sepi_result, country_name,
                                  country_config, conflict_data = NULL,
                                  version = NULL, save = TRUE) {
   label       <- country_label(country_name)
-  # For v1/v2 use pillars definition; for v3 use pillar_* columns present in data
+  # For v1/v2 use pillars definition; for v2 use pillar_* columns present in data
   if (!is.null(country_config$pillars)) {
     pillar_cols <- paste0("pillar_", names(country_config$pillars))
   } else {
@@ -93,32 +90,23 @@ plot_pillar_heatmap <- function(sepi_result, country_name,
                           levels = sepi_result$adm1_name[order(sepi_result$sepi)])
     )
 
-  conflict_col <- "count_conflicts_events_per_1k_2025"
-  if (!is.null(conflict_data) && conflict_col %in% names(conflict_data)) {
-    raw <- conflict_data[[conflict_col]]
-    rng <- range(raw, na.rm = TRUE)
-    normalised <- if (diff(rng) > 0) 1 - (raw - rng[1]) / diff(rng) else rep(NA_real_, length(raw))
-
-    df_conflict <- dplyr::tibble(
-      adm1_name = factor(conflict_data$adm1_name,
-                         levels = levels(df_long$adm1_name)),
-      pillar    = "Conflict\n(per 1k)",
-      score     = normalised
-    )
-    df_long <- dplyr::bind_rows(df_long, df_conflict)
-  }
-
   p <- ggplot(df_long, aes(x = pillar, y = adm1_name, fill = score)) +
     geom_tile(colour = "white", linewidth = 0.5) +
     scale_fill_distiller(palette = "RdYlGn", direction = 1,
                          limits = c(0, 1), na.value = "grey80",
                          name = "Score\n(higher = better)") +
     labs(
-      title = paste("Pillar Scores:", label),
-      x = NULL, y = NULL
+      title   = paste("Pillar Scores:", label),
+      x       = NULL,
+      y       = NULL,
+      caption = "Scores are normalised to a 0–1 scale. Higher values indicate better socio-economic conditions."
     ) +
     theme_sepi() +
-    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+    theme(
+      axis.text.x   = element_text(angle = 35, hjust = 1),
+      plot.caption  = element_text(size = 7, colour = "grey40", hjust = 0),
+      legend.title  = element_text(margin = margin(b = 16))
+    )
 
   if (save) {
     n_regions <- dplyr::n_distinct(df_long$adm1_name)
@@ -172,10 +160,12 @@ plot_sepi_vs_conflict <- function(conflict_result, country_name,
     labs(
       title    = paste("SEPI vs Conflict:", label),
       subtitle = rho_label,
-      x = "SEPI Score",
-      y = gsub("_", " ", y_var)
+      x        = "SEPI Score",
+      y        = "Conflict Events 2025 (count)",
+      caption  = "ρ (rho): Spearman rank correlation coefficient, measuring the monotonic relationship between SEPI scores and conflict events.\nValues range from -1 (perfect negative) to +1 (perfect positive); values closer to -1 indicate that higher socio-economic conditions are associated with fewer conflict events."
     ) +
-    theme_sepi()
+    theme_sepi() +
+    theme(plot.caption = element_text(size = 7, colour = "grey40", hjust = 0))
 
   if (save) {
     fname <- versioned_output_path(version, "figures", "sepi_conflict",
@@ -393,7 +383,7 @@ plot_pillar_maps <- function(sepi_result, country_name, country_config,
                               version        = NULL,
                               save           = TRUE) {
   label          <- country_label(country_name)
-  # For v1/v2 use pillars definition; for v3 use pillar_* columns present in data
+  # For v1/v2 use pillars definition; for v2 use pillar_* columns present in data
   if (!is.null(country_config$pillars)) {
     pillar_cols <- paste0("pillar_", names(country_config$pillars))
   } else {

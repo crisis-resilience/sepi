@@ -338,22 +338,22 @@ screen_all_countries <- function(all_data, version) {
 }
 
 # ============================================================================
-# V3 Indicator Selection
+# v2 Indicator Selection
 # ============================================================================
-# Run once before finalising V3_INDICATOR_CONFIG$se_vars.
+# Run once before finalising v2_INDICATOR_CONFIG$se_vars.
 # For each country: impute → normalise → multicollinearity filter → compute
 # Pearson r with conflict → return summary table.
 # ============================================================================
 
-#' Select v3 indicators via multicollinearity + conflict-correlation analysis
+#' Select v2 indicators via multicollinearity + conflict-correlation analysis
 #'
 #' @param all_data  Named list of country data frames
-#' @param version   sepi_version object (v3_conflict_weighted or similar)
+#' @param version   sepi_version object (v2_conflict_weighted or similar)
 #' @param cutoff    Multicollinearity |r| cutoff (default 0.8)
 #'
 #' @return Named list of per-country data frames with columns:
 #'   indicator, corr_with_conflict, weight_magnitude, keep
-select_v3_indicators <- function(all_data, version, cutoff = 0.8) {
+select_v2_indicators <- function(all_data, version, cutoff = 0.8) {
 
   if (!requireNamespace("caret", quietly = TRUE)) {
     stop("Package 'caret' is required for multicollinearity detection. ",
@@ -361,7 +361,7 @@ select_v3_indicators <- function(all_data, version, cutoff = 0.8) {
   }
 
   cat("\n========================================\n")
-  cat(" V3 Indicator Selection\n")
+  cat(" v2 Indicator Selection\n")
   cat(" Multicollinearity cutoff:", cutoff, "\n")
   cat("========================================\n")
 

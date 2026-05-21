@@ -18,7 +18,7 @@ source("run_all.R")
 
 ### `run_all.R` — Master pipeline runner
 
-Runs all six scripts in sequence. Change `active_version` at the top to run the full pipeline for a different version. Scripts 05 and 06 always compare `v1_aligned_equal_geometric` against `v3_aligned_conflict_weighted` regardless of this setting.
+Runs all six scripts in sequence. Change `active_version` at the top to run the full pipeline for a different version. Scripts 05 and 06 always compare `v1_equal_geometric` against `v2_conflict_weighted` regardless of this setting.
 
 ---
 
@@ -60,14 +60,14 @@ The same pattern repeats for every year from 2016 to 2025.
 
 ### `02_explore.R` — Indicator exploration and screening
 
-Run this when evaluating new indicators, auditing the configured set, or reviewing v3 conflict weights. Set `version` at the top of the script to control which indicator definitions are used.
+Run this when evaluating new indicators, auditing the configured set, or reviewing v2 conflict weights. Set `version` at the top of the script to control which indicator definitions are used.
 
 | Block | What it does |
 |-------|-------------|
 | A. Candidate exploration | Surveys all available variables, cross-references data dictionaries, produces `outputs/candidate_report_{country}.csv` and correlation matrix plots |
 | B. Indicator screening | Validates the configured indicator set against OECD Handbook quality criteria (coverage, variance, collinearity) |
 | C. Internal diagnostics | Missingness, within-pillar Spearman correlations, Cronbach's alpha (requires a version with pillars defined) |
-| D. V3 indicator selection *(optional)* | Runs `select_v3_indicators()` to identify conflict-correlated candidates — uncomment, review output, then update `se_vars` in the JSON |
+| D. v2 indicator selection *(optional)* | Runs `select_v2_indicators()` to identify conflict-correlated candidates — uncomment, review output, then update `se_vars` in the JSON |
 
 ---
 
@@ -97,21 +97,20 @@ Validates a version against external criteria and its robustness variants.
 |---------|-------------|
 | A. Version comparison | Rank correlations across robustness variants declared in the version JSON |
 | B. Criterion validity (IDP) | Spearman rho between SEPI and IOM IDP displacement density (H1: rho < −0.6) |
-| C. Discriminatory capacity | ROC / AUC test: can SEPI identify displacement hotspots? (target: AUC ≥ 0.70) |
-| D. Visualisations (displacement) | Scatter and ROC curve PNGs saved to `outputs/figures/criterion_validity/` |
-| E. Criterion validity (conflict) | Parallel Spearman + AUC tests using ACLED conflict intensity across three time windows |
+| C. Visualisations (displacement) | Scatter PNGs saved to `outputs/figures/criterion_validity/` |
+| D. Criterion validity (conflict) | Parallel Spearman tests using ACLED conflict intensity across three time windows |
 
 ---
 
-### `05_compare_versions.R` — V1 vs V3 head-to-head comparison
+### `05_compare_versions.R` — V1 vs v2 head-to-head comparison
 
-Always compares `v1_aligned_equal_geometric` against `v3_aligned_conflict_weighted` on rank stability, criterion validity (IDP), and discriminatory capacity (AUC). Produces a summary scorecard.
+Always compares `v1_equal_geometric` against `v2_conflict_weighted` on rank stability and criterion validity (IDP and conflict). Produces a summary scorecard.
 
 ---
 
 ### `06_sensitivity_analysis.R` — SA1 and SA2 sensitivity analysis
 
-Always runs for both `v1_aligned_equal_geometric` and `v3_aligned_conflict_weighted`.
+Always runs for both `v1_equal_geometric` and `v2_conflict_weighted`.
 
 | Analysis | What it does |
 |----------|-------------|
@@ -133,18 +132,18 @@ sepi/
 ├── 02_explore.R                # Indicator exploration and screening
 ├── 03_run_sepi.R               # Main pipeline: compute, visualise, export
 ├── 04_evaluate.R               # Version comparison and criterion validity
-├── 05_compare_versions.R       # V1 vs V3 head-to-head
+├── 05_compare_versions.R       # V1 vs v2 head-to-head
 ├── 06_sensitivity_analysis.R   # SA1 + SA2 sensitivity analysis
 ├── versions/                   # Methodology versions (one JSON per version)
-│   ├── v1_aligned_equal_geometric.json   # Default: equal weights, geometric across pillars
-│   ├── v1_aligned_equal_arithmetic.json  # Variant: arithmetic across pillars
-│   ├── v3_aligned_conflict_weighted.json # Conflict-correlation weighted flat sum
+│   ├── v1_equal_geometric.json   # Default: equal weights, geometric across pillars
+│   ├── v1_equal_arithmetic.json  # Variant: arithmetic across pillars
+│   ├── v2_conflict_weighted.json # Conflict-correlation weighted flat sum
 │   └── _template.json
 ├── robustness_checks/          # Robustness variants (referenced from version JSONs)
-│   ├── v1_aligned_zscore.json
-│   ├── v1_aligned_bod.json
-│   ├── v3_aligned_zscore.json
-│   └── v3_aligned_bod.json
+│   ├── v1_zscore.json
+│   ├── v1_bod.json
+│   ├── v2_zscore.json
+│   └── v2_bod.json
 ├── R/
 │   ├── setup.R                        # Shared package installs + source calls (used by 02–06)
 │   ├── config.R                       # Global paths, version loader
@@ -173,31 +172,31 @@ sepi/
 SEPI versions are defined as self-contained JSON files in `versions/`. Each file specifies the methodology parameters and full country indicator definitions. To switch versions, change one line in any pipeline script:
 
 ```r
-version <- VERSIONS$v1_aligned_equal_geometric   # ← any key in VERSIONS
+version <- VERSIONS$v1_equal_geometric   # ← any key in VERSIONS
 ```
 
 Adding a new version requires no R code changes — create a new JSON file and it appears automatically as `VERSIONS$<name>`.
 
 | Version | Description |
 |---------|-------------|
-| `v1_aligned_equal_geometric` | **Default.** Arithmetic mean within pillars, geometric mean across, equal weights |
-| `v1_aligned_equal_arithmetic` | Arithmetic mean both within and across pillars, equal weights |
-| `v3_aligned_conflict_weighted` | Conflict-correlation weighted flat sum (no pillar structure) |
+| `v1_equal_geometric` | **Default.** Arithmetic mean within pillars, geometric mean across, equal weights |
+| `v1_equal_arithmetic` | Arithmetic mean both within and across pillars, equal weights |
+| `v2_conflict_weighted` | Conflict-correlation weighted flat sum (no pillar structure) |
 
 Robustness variants (declared inside version JSONs, always run alongside their parent):
 
 | Variant | Description |
 |---------|-------------|
-| `v1_aligned_zscore` | v1 with z-score normalisation instead of min-max |
-| `v1_aligned_bod` | v1 with Benefit of the Doubt (DEA) weighting |
-| `v3_aligned_zscore` | v3 with z-score normalisation |
-| `v3_aligned_bod` | v3 with Benefit of the Doubt weighting |
+| `v1_zscore` | v1 with z-score normalisation instead of min-max |
+| `v1_bod` | v1 with Benefit of the Doubt (DEA) weighting |
+| `v2_zscore` | v2 with z-score normalisation |
+| `v2_bod` | v2 with Benefit of the Doubt weighting |
 
 ---
 
 ## Outputs
 
-### Excel workbook: `outputs/sepi_results_v1_aligned_equal_weighted_raw_subindicators.xlsx` (main export)
+### Excel workbook: `outputs/sepi_results_v1_equal_weighted_raw_subindicators.xlsx` (main export)
 
 | Sheet | Contents |
 |-------|----------|
@@ -215,7 +214,7 @@ Per country: `rankings_<country>.png`, `pillars_<country>.png`, `sepi_conflict_<
 
 ---
 
-## Methodology (default: `v1_aligned_equal_geometric`)
+## Methodology (default: `v1_equal_geometric`)
 
 1. **Normalisation** — Min-max scaling to [0, 1] with polarity alignment (negative-polarity indicators are inverted so higher always = better).
 2. **Within-pillar aggregation** — Arithmetic mean of normalised indicators (equal indicator weights).
@@ -224,4 +223,4 @@ Per country: `rankings_<country>.png`, `pillars_<country>.png`, `sepi_conflict_<
 
 ## Dependencies
 
-`tidyverse`, `psych`, `purrr`, `rlang`, `jsonlite`, `ggrepel`, `openxlsx`, `sf`, `patchwork`, `pROC`, `gt`, `rvest`, `caret`, `httr2`
+`tidyverse`, `psych`, `purrr`, `rlang`, `jsonlite`, `ggrepel`, `openxlsx`, `sf`, `patchwork`, `gt`, `rvest`, `caret`, `httr2`

@@ -14,7 +14,7 @@
 
 source("R/setup.R")
 
-for (pkg in c("pROC", "ggrepel")) {
+for (pkg in c("ggrepel")) {
   if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
 }
 library(ggrepel)
@@ -25,7 +25,7 @@ source("R/criterion_validity_conflict.R")
 # ── Configure + Load ──────────────────────────────────────────────────────────
 # When sourced from run_all.R, .sepi_run_version is set there; otherwise use the
 # version defined below.
-version      <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v3_aligned_conflict_weighted  # ← change to switch version under evaluation
+version      <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v1_equal_geometric  # ← change to switch version under evaluation
 all_data     <- load_all_data(version = version)
 sepi_results <- compute_all_countries(all_data, version)
 
@@ -134,107 +134,9 @@ for (country in names(sepi_results)) {
 
 cat("Criterion validity check complete.\n")
 
-# ── C. Discriminatory Capacity — ROC / Hotspot Test ───────────────────────────
-# Binary complement to the Spearman test (Section C).
-# Question: can SEPI discriminate displacement hotspots from non-hotspots?
-# Hotspot definition: ADM1 units above the within-country median pop_frac_idps.
-# Predictor: SEPI score (lower SEPI -> higher P(hotspot), so direction = ">").
-# Requires idp_data from Section B — run sections together.
-# Somalia (n = 6) is skipped: too few units for a meaningful ROC curve.
-
-cat("\n========================================\n")
-cat(" Discriminatory Capacity — ROC / Hotspot Test\n")
-cat("========================================\n")
-cat(" Hotspot = pop_frac_idps above within-country median\n")
-cat(" Predictor = SEPI score (lower -> more likely hotspot)\n")
-cat(" Target: AUC >= 0.70 (acceptable discrimination)\n\n")
-
-MIN_N_ROC <- 8  # minimum matched units to attempt ROC
-
-for (country in names(sepi_results)) {
-  sepi_df <- sepi_results[[country]]
-
-  cc <- COUNTRY_CODE_MAP[[country]]
-  if (is.null(cc)) next
-
-  idp_country <- dplyr::filter(idp_data, country_code == cc)
-  if (nrow(idp_country) == 0) next
-
-  merged <- dplyr::inner_join(
-    dplyr::select(sepi_df, adm1_pcode, adm1_name, sepi, sepi_rank),
-    dplyr::select(idp_country, adm1_pcode, pop_frac_idps),
-    by = "adm1_pcode"
-  )
-
-  n_matched <- nrow(merged)
-
-  if (n_matched < MIN_N_ROC) {
-    cat(sprintf("  %s: n = %d — too few units for ROC (skipped)\n\n",
-                country_label(country), n_matched))
-    next
-  }
-
-  # Define hotspot: above median displacement density within matched units
-  threshold <- median(merged$pop_frac_idps)
-  merged$hotspot <- as.integer(merged$pop_frac_idps > threshold)
-  n_hotspot <- sum(merged$hotspot)
-
-  if (n_hotspot < 2 || n_hotspot > (n_matched - 2)) {
-    cat(sprintf("  %s: hotspot class too imbalanced (n_hotspot = %d / %d) — skipping\n\n",
-                country_label(country), n_hotspot, n_matched))
-    next
-  }
-
-  # ROC: direction = ">" because higher SEPI -> lower P(hotspot)
-  roc_obj <- pROC::roc(merged$hotspot, merged$sepi,
-                        direction = ">",
-                        quiet     = TRUE,
-                        ci        = TRUE,
-                        ci.method = "delong")
-
-  auc_val <- as.numeric(pROC::auc(roc_obj))
-  ci_vals  <- as.numeric(pROC::ci(roc_obj))  # lower, AUC, upper
-
-  # Best SEPI cut-off by Youden's J (maximises sensitivity + specificity - 1)
-  coords_df <- pROC::coords(roc_obj, x = "best", best.method = "youden",
-                             ret       = c("threshold", "sensitivity", "specificity"),
-                             transpose = FALSE)
-
-  verdict <- if (auc_val >= 0.80)      "GOOD discrimination (AUC >= 0.80)"
-             else if (auc_val >= 0.70) "ACCEPTABLE discrimination (AUC >= 0.70)"
-             else if (auc_val >= 0.60) "poor — weak discrimination"
-             else                      "NO discrimination (near random)"
-
-  note <- if (country == "south_sudan") " [exploratory — n = 10]" else ""
-
-  cat(sprintf(
-    "%s%s\n  n = %d  |  Hotspots (above median %.3f%%): %d / %d\n  AUC = %.3f  (95%% CI: %.3f – %.3f)\n  Verdict: %s\n  Optimal SEPI cut-off (Youden's J): %.3f  |  Sensitivity: %.2f  |  Specificity: %.2f\n\n",
-    country_label(country), note,
-    n_matched, threshold, n_hotspot, n_matched,
-    auc_val, ci_vals[1], ci_vals[3], verdict,
-    coords_df$threshold[1], coords_df$sensitivity[1], coords_df$specificity[1]
-  ))
-
-  # Unit-level table showing classification
-  out_tbl <- merged |>
-    dplyr::arrange(sepi_rank) |>
-    dplyr::mutate(
-      sepi          = round(sepi, 3),
-      pop_frac_idps = round(pop_frac_idps, 3),
-      hotspot       = ifelse(hotspot == 1, "YES", "no")
-    ) |>
-    dplyr::select(adm1_name, sepi_rank, sepi, pop_frac_idps, hotspot)
-
-  print(as.data.frame(out_tbl), row.names = FALSE)
-  cat("\n")
-}
-
-cat("Discriminatory capacity check complete.\n")
-
 # ── D. Criterion Validity Visualisations (Displacement) ──────────────────────
-# Two figures saved to outputs/figures/criterion_validity/:
+# Figure saved to outputs/figures/criterion_validity/:
 #   criterion_validity_scatter_displacement_{version}.png — SEPI vs displacement density
-#   criterion_validity_roc_displacement_{version}.png     — ROC curves for Kenya & South Sudan
 
 # ---- D1. Scatter: SEPI vs displacement density --------------------------------
 
@@ -289,81 +191,28 @@ if (length(scatter_plots) > 0) {
   )
   ggsave(scatter_path, combined_scatter, width = 15, height = 6, dpi = 150)
   message("Saved: ", scatter_path)
-}
 
-# ---- D2. ROC curves for countries with sufficient n -------------------------
-
-roc_plots    <- list()
-roc_countries <- list()
-
-for (country in names(sepi_results)) {
-  cc          <- COUNTRY_CODE_MAP[[country]]
-  sepi_df     <- sepi_results[[country]]
-  idp_country <- dplyr::filter(idp_data, country_code == cc)
-
-  merged <- dplyr::inner_join(
-    dplyr::select(sepi_df, adm1_pcode, adm1_name, sepi),
-    dplyr::select(idp_country, adm1_pcode, pop_frac_idps),
-    by = "adm1_pcode"
+  # Per-country individual scatter plots with footnote
+  displacement_footnote <- paste0(
+    "ρ (rho): Spearman rank correlation coefficient between SEPI and IDP displacement density.\n",
+    "A negative value indicates higher socio-economic conditions are associated with lower displacement.\n",
+    "Displacement data: IOM DTM origin-based tracking | within-country min-max normalised."
   )
-  n_matched <- nrow(merged)
-  if (n_matched < MIN_N_ROC) next
-
-  threshold      <- median(merged$pop_frac_idps)
-  merged$hotspot <- as.integer(merged$pop_frac_idps > threshold)
-  n_hotspot      <- sum(merged$hotspot)
-  if (n_hotspot < 2 || n_hotspot > (n_matched - 2)) next
-
-  roc_obj <- pROC::roc(merged$hotspot, merged$sepi,
-                        direction = ">", quiet = TRUE,
-                        ci = TRUE, ci.method = "delong")
-
-  auc_val <- as.numeric(pROC::auc(roc_obj))
-  ci_vals  <- as.numeric(pROC::ci(roc_obj))
-
-  roc_df <- data.frame(
-    specificity = roc_obj$specificities,
-    sensitivity = roc_obj$sensitivities
-  )
-
-  note  <- if (country == "south_sudan") " (exploratory, n=10)" else ""
-  p_roc <- ggplot(roc_df, aes(x = 1 - specificity, y = sensitivity)) +
-    geom_abline(slope = 1, intercept = 0, linetype = "dashed",
-                colour = "grey60", linewidth = 0.5) +
-    geom_line(colour = "#2c7fb8", linewidth = 1.1) +
-    geom_area(fill = "#2c7fb8", alpha = 0.1) +
-    annotate("text", x = 0.65, y = 0.15,
-             label = sprintf("AUC = %.3f\n95%% CI: %.3f\u2013%.3f",
-                             auc_val, ci_vals[1], ci_vals[3]),
-             size = 3.3, colour = "grey20", hjust = 0) +
-    scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
-    scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
-    labs(
-      title    = paste0(country_label(country), note),
-      subtitle = sprintf("Hotspot = pop_frac_idps > %.3f%% (median)", threshold),
-      x        = "1 - Specificity (False Positive Rate)",
-      y        = "Sensitivity (True Positive Rate)"
-    ) +
-    theme_sepi()
-
-  roc_plots[[country]] <- p_roc
-}
-
-if (length(roc_plots) > 0) {
-  combined_roc <- patchwork::wrap_plots(roc_plots, ncol = length(roc_plots)) +
-    patchwork::plot_annotation(
-      title    = "Discriminatory Capacity: ROC Curves",
-      subtitle = "Can SEPI identify displacement hotspots? | Hotspot = above-median displacement density",
-      theme    = theme_sepi()
+  for (country in names(scatter_plots)) {
+    p_single <- scatter_plots[[country]] +
+      labs(caption = displacement_footnote) +
+      theme(
+        plot.caption          = element_text(size = 7, colour = "grey40", hjust = 0,
+                                             margin = margin(t = 6)),
+        plot.caption.position = "plot"
+      )
+    single_path <- versioned_output_path(
+      version, "figures", "criterion_validity",
+      paste0("criterion_validity_scatter_displacement_", country)
     )
-
-  roc_path <- versioned_output_path(
-    version, "figures", "criterion_validity",
-    "criterion_validity_roc_displacement"
-  )
-  ggsave(roc_path, combined_roc,
-         width = length(roc_plots) * 5.5, height = 5.5, dpi = 150)
-  message("Saved: ", roc_path)
+    ggsave(single_path, p_single, width = 7, height = 6.5, dpi = 150)
+    message("Saved: ", single_path)
+  }
 }
 
 cat("Displacement visualisations complete.\n")
@@ -373,15 +222,15 @@ cat("Displacement visualisations complete.\n")
 # external criterion, over three time windows:
 #   "10y"  -> 2016–2025
 #   "5y"   -> 2021–2025
-#   "2025" -> 2025 only (circular for v3_conflict_weighted)
-# Produces 3 scatter PNGs and 3 ROC PNGs (one per window), mirroring Section E.
+#   "2025" -> 2025 only (circular for v2_conflict_weighted)
+# Produces 3 scatter PNGs (one per window).
 
 cat("\n========================================\n")
 cat(" Criterion Validity — ACLED Conflict Intensity\n")
 cat("========================================\n")
 cat(" H1: lower SEPI -> higher conflict events per 1k (rho < 0)\n")
 cat(" Target: rho < -0.6 (strong negative)\n")
-cat(" Note: 2025 window is circular for v3_conflict_weighted\n\n")
+cat(" Note: 2025 window is circular for v2_conflict_weighted\n\n")
 
 conflict_windows <- c("10y", "5y", "2025")
 
@@ -400,17 +249,10 @@ for (window in conflict_windows) {
     }
 
     cv  <- criterion_validity_conflict(sepi_results, country, window)
-    auc <- auc_capacity_conflict(sepi_results, country, window)
 
     cat(sprintf("%s\n  Matched: %d / %d SEPI units\n  Spearman rho = %.3f  (p = %.3f)  [%s]\n",
                 country_label(country), n_matched, nrow(sepi_df),
                 cv$rho, cv$p, cv$verdict))
-    if (!is.na(auc$auc)) {
-      cat(sprintf("  AUC = %.3f  (95%% CI: %.3f\u2013%.3f)  [%s]\n",
-                  auc$auc, auc$ci_lo, auc$ci_hi, auc$verdict))
-    } else {
-      cat(sprintf("  AUC = n/a  [%s]\n", auc$verdict))
-    }
 
     out_tbl <- merged |>
       dplyr::left_join(
@@ -421,17 +263,17 @@ for (window in conflict_windows) {
       dplyr::mutate(
         sepi            = round(sepi, 3),
         conflict_per_1k = round(conflict_per_1k, 4),
-        conflict_norm   = round(conflict_norm, 3),
-        hotspot         = ifelse(hotspot == 1, "YES", "no")
+        conflict_norm   = round(conflict_norm, 3)
       ) |>
-      dplyr::select(adm1_name, sepi_rank, sepi, conflict_per_1k, conflict_norm, hotspot)
+      dplyr::select(adm1_name, sepi_rank, sepi, conflict_per_1k, conflict_norm)
 
     print(as.data.frame(out_tbl), row.names = FALSE)
     cat("\n")
   }
 
   save_conflict_scatter(sepi_results, window, version)
-  save_conflict_roc(sepi_results, window, version, min_n = MIN_N_ROC)
 }
+
+save_conflict_scatter_by_country(sepi_results, version)
 
 cat("\nConflict criterion validity check complete.\n")

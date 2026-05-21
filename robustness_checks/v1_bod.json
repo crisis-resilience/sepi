@@ -1,6 +1,6 @@
 {
-  "name": "v1_aligned_bod",
-  "description": "Robustness check: v1_aligned_equal_geometric indicator set with Benefit of the Doubt (BoD/DEA) weighting instead of equal weights",
+  "name": "v1_bod",
+  "description": "Robustness check: v1_equal_geometric indicator set with Benefit of the Doubt (BoD/DEA) weighting instead of equal weights",
   "methodology": {
     "normalisation": "min_max",
     "within_pillar_agg": "bod",

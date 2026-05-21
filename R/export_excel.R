@@ -55,7 +55,7 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
   )
 
   if (isTRUE(version$conflict_weighting)) {
-    # V3-specific README content
+    # v2-specific README content
     readme <- data.frame(
       Section = c(
         "Title",
@@ -67,6 +67,8 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         "  Sheet: SEPI_Results",
         "  Sheet: Indicator_Scores",
         "  Sheet: Indicator_Details",
+        "  Sheet: Conflict_Data",
+        "  Sheet: Pillar_Descriptions",
         "",
         "Methodology Overview",
         "",
@@ -86,7 +88,8 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
           "This file presents a composite indicator designed to measure relative ",
           "socio-economic conditions relevant to peacebuilding across Admin-1 regions ",
           "in Kenya, Somalia, and South Sudan, based on the latest available ",
-          "cross-sectional data."
+          "cross-sectional data. Two Admin-1 units are excluded from all analyses: ",
+          "Abyei (South Sudan) and Middle Juba (Somalia)."
         ),
         "",
         "This workbook contains several sheets detailing the index construction and results:",
@@ -102,6 +105,16 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         paste0(
           "Documents the indicator, polarity, pillar mapping, and effective weight ",
           "assigned to each indicator, providing full transparency on the index construction."
+        ),
+        paste0(
+          "ACLED-sourced conflict event and fatality counts per Admin-1 region, by year ",
+          "(2016–2025). Includes total events, total fatalities, and rates per 100,000 population. ",
+          "This data is used for criterion validity assessment and is not part of the index construction."
+        ),
+        paste0(
+          "Describes each of the five pillar domains (Food Security, Education, Health, ",
+          "Income & Livelihoods, Climate): the dashboard display name, a short description, ",
+          "and a detailed overview of the pillar’s scope and relevance to peacebuilding."
         ),
         "",
         "The index was constructed using the following steps:",
@@ -134,11 +147,12 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         "Regions are ranked within each country (1 = best socio-economic conditions).",
         "",
         paste0(
-          "The final index is a relative measure. A score closer to 1 indicates ",
-          "relatively better socio-economic conditions for peacebuilding compared ",
-          "to other regions in this analysis. A score closer to 0 indicates ",
-          "relatively more challenging conditions. It does not represent an ",
-          "absolute measure of 'peace' or 'development'."
+          "The final index is a relative, within-country measure. A score closer ",
+          "to 1 indicates relatively better socio-economic conditions for ",
+          "peacebuilding compared to other regions in the same country. A score ",
+          "closer to 0 indicates relatively more challenging conditions. Scores ",
+          "are not comparable across countries. It does not represent an absolute ",
+          "measure of 'peace' or 'development'."
         )
       ),
       stringsAsFactors = FALSE
@@ -156,6 +170,8 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         "Sheet: SEPI_Results",
         "Sheet: Indicator_Scores",
         "Sheet: Indicator_Details",
+        "Sheet: Conflict_Data",
+        "Sheet: Pillar_Descriptions",
         "",
         "Methodology Overview",
         "",
@@ -174,7 +190,8 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
           "This file presents a composite indicator designed to measure relative ",
           "socio-economic conditions relevant to peacebuilding across Admin-1 regions ",
           "in Kenya, Somalia, and South Sudan, based on the latest available ",
-          "cross-sectional data."
+          "cross-sectional data. Two Admin-1 units are excluded from all analyses: ",
+          "Abyei (South Sudan) and Middle Juba (Somalia)."
         ),
         "",
         "This workbook contains several sheets detailing the index construction and results:",
@@ -198,6 +215,17 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         paste0(
           "Documents the pillar-indicator mapping, polarity, and effective weight ",
           "assigned to each indicator, providing full transparency on the index construction."
+        ),
+        paste0(
+          "ACLED-sourced conflict event and fatality counts per Admin-1 region, by year ",
+          "(2016–2025). Includes total events, total fatalities, and rates per 100,000 ",
+          "population. This data is used for criterion validity assessment and is not ",
+          "part of the index construction."
+        ),
+        paste0(
+          "Describes each of the five pillar domains (Food Security, Education, Health, ",
+          "Income & Livelihoods, Climate): the dashboard display name, a short description, ",
+          "and a detailed overview of the pillar's scope and relevance to peacebuilding."
         ),
         "",
         "The index was constructed using the following steps:",
@@ -238,11 +266,12 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         "Regions are ranked within each country (1 = best socio-economic conditions).",
         "",
         paste0(
-          "The final index is a relative measure. A score closer to 1 indicates ",
-          "relatively better socio-economic conditions for peacebuilding compared ",
-          "to other regions in this analysis. A score closer to 0 indicates ",
-          "relatively more challenging conditions. It does not represent an ",
-          "absolute measure of 'peace' or 'development'."
+          "The final index is a relative, within-country measure. A score closer ",
+          "to 1 indicates relatively better socio-economic conditions for ",
+          "peacebuilding compared to other regions in the same country. A score ",
+          "closer to 0 indicates relatively more challenging conditions. Scores ",
+          "are not comparable across countries. It does not represent an absolute ",
+          "measure of 'peace' or 'development'."
         )
       ),
       stringsAsFactors = FALSE
@@ -279,10 +308,26 @@ build_results_sheet <- function(wb, sepi_results, config, version, header_style)
 
   combined <- dplyr::bind_rows(rows)
 
+  overview_path <- "data/all_adm1_overview.csv"
+  if (file.exists(overview_path)) {
+    overview <- utils::read.csv(overview_path, stringsAsFactors = FALSE,
+                                check.names = FALSE)
+    overview <- overview[, c("adm1_pcode", "adm1_overview"), drop = FALSE]
+    combined <- dplyr::left_join(combined, overview, by = "adm1_pcode")
+  }
+
   openxlsx::addWorksheet(wb, "SEPI_Results")
   openxlsx::writeData(wb, "SEPI_Results", combined, headerStyle = header_style)
-  openxlsx::setColWidths(wb, "SEPI_Results", cols = seq_len(ncol(combined)),
-                         widths = "auto")
+  openxlsx::setColWidths(wb, "SEPI_Results",
+                         cols = seq_len(ncol(combined) - 1), widths = "auto")
+  overview_col <- which(names(combined) == "adm1_overview")
+  if (length(overview_col) > 0) {
+    openxlsx::setColWidths(wb, "SEPI_Results", cols = overview_col, widths = 80)
+    wrap_style <- openxlsx::createStyle(wrapText = TRUE, valign = "top")
+    openxlsx::addStyle(wb, "SEPI_Results", style = wrap_style,
+                       rows = 2:(nrow(combined) + 1), cols = overview_col,
+                       gridExpand = TRUE)
+  }
 }
 
 build_indicator_scores_sheet <- function(wb, sepi_results, config, version, header_style) {
@@ -348,7 +393,7 @@ get_ind_to_pillar <- function(cc) {
 }
 
 # Returns the character vector of indicators that enter the SEPI score.
-# Works for pillars-based (v1/v2), se_vars-based (v3 conflict), and
+# Works for pillars-based (v1/v2), se_vars-based (v2 conflict), and
 # pillar_map-based (BoD) configs.
 get_sepi_vars <- function(cc) {
   if (!is.null(cc$pillars)) {
@@ -364,7 +409,7 @@ get_sepi_vars <- function(cc) {
 # Adding a new version only requires adding a branch here.
 get_indicator_weights <- function(cc, version, sepi_result, sepi_vars) {
   if (isTRUE(version$conflict_weighting)) {
-    eff_wts <- attr(sepi_result, "v3_effective_weights")
+    eff_wts <- attr(sepi_result, "v2_effective_weights")
     if (!is.null(eff_wts)) {
       as.character(round(eff_wts[sepi_vars[sepi_vars %in% names(eff_wts)]], 4))
     } else {
@@ -402,23 +447,42 @@ get_indicator_weights <- function(cc, version, sepi_result, sepi_vars) {
 
 build_indicator_details_sheet <- function(wb, sepi_results, version, config, header_style) {
 
+  # Extract 4-digit year numbers from a reference period string.
+  # Returns a single year ("2025") or a range ("2016-2025").
+  extract_years <- function(ref_period) {
+    if (is.na(ref_period) || nchar(trimws(ref_period)) == 0) return(NA_character_)
+    years <- unique(regmatches(ref_period, gregexpr("20\\d{2}", ref_period))[[1]])
+    if (length(years) == 0) return(NA_character_)
+    years_int <- sort(as.integer(years))
+    if (length(years_int) == 1) as.character(years_int) else paste(range(years_int), collapse = "-")
+  }
+
   # Build polarity lookup from metadata — ground truth for directionality.
   # bad_vars serves a computational role (weight sign / data flip) and may be
   # trimmed in some versions, so it is not reliable for display polarity.
   polarity_lookup <- list()
   label_lookup    <- list()
+  unit_lookup     <- list()
+  source_lookup   <- list()
+  year_lookup     <- list()
   meta_path <- GLOBAL_DATA$metadata_file
   if (file.exists(meta_path)) {
     meta <- utils::read.csv(meta_path, stringsAsFactors = FALSE, check.names = FALSE)
     for (i in seq_len(nrow(meta))) {
       raw_name <- meta[["global_variable_name"]][i]
       pol <- if (grepl("more deprived", meta[["Directionality"]][i], ignore.case = TRUE)) -1L else 1L
-      ind_label <- meta[["Indicator name"]][i]
+      ind_label  <- meta[["Indicator name"]][i]
+      unit_val   <- meta[["Unit of measurement"]][i]
+      source_val <- meta[["Data source"]][i]
+      ref_val    <- meta[["Reference period"]][i]
       # Index under the literal name and a sanitised variant (e.g. "pop_frac_3+" -> "pop_frac_3plus")
       for (nm in unique(c(raw_name, gsub("\\+", "plus", raw_name)))) {
         key <- paste0(tolower(meta[["country"]][i]), ".", nm)
         polarity_lookup[[key]] <- pol
         label_lookup[[key]]    <- ind_label
+        unit_lookup[[key]]     <- unit_val
+        source_lookup[[key]]   <- source_val
+        year_lookup[[key]]     <- ref_val
       }
     }
   }
@@ -450,20 +514,56 @@ build_indicator_details_sheet <- function(wb, sepi_results, version, config, hea
         ifelse(v %in% bad_vars, -1L, 1L)   # fallback: bad_vars for vars absent from metadata
       }
       detail_list[[length(detail_list) + 1]] <- tibble::tibble(
-        country      = country_label(country),
-        pillar       = if (v %in% names(ind_to_pillar)) ind_to_pillar[[v]] else NA_character_,
-        indicator    = v,
-        polarity     = pol,
-        label        = if (!is.na(climate_label_overrides[v])) climate_label_overrides[v]
-                       else if (!is.null(label_lookup[[meta_key]])) label_lookup[[meta_key]]
-                       else v,
-        used_in_sepi = v %in% sepi_vars,
-        weight       = if (v %in% names(weights)) weights[[v]] else NA_character_
+        country             = country_label(country),
+        pillar              = if (v %in% names(ind_to_pillar)) ind_to_pillar[[v]] else NA_character_,
+        indicator           = v,
+        polarity            = pol,
+        label               = if (!is.na(climate_label_overrides[v])) climate_label_overrides[v]
+                              else if (!is.null(label_lookup[[meta_key]])) label_lookup[[meta_key]]
+                              else v,
+        unit_of_measurement = if (!is.null(unit_lookup[[meta_key]])) unit_lookup[[meta_key]] else NA_character_,
+        data_source         = if (!is.null(source_lookup[[meta_key]])) source_lookup[[meta_key]] else NA_character_,
+        data_year           = extract_years(year_lookup[[meta_key]] %||% NA_character_),
+        used_in_sepi        = v %in% sepi_vars,
+        weight              = if (v %in% names(weights)) weights[[v]] else NA_character_
       )
     }
   }
 
   rows <- dplyr::bind_rows(detail_list)
+
+  # Append conflict variable summary rows (one set per country, year range 2016-2025)
+  conflict_var_defs <- list(
+    list(indicator = "total_fatalities",
+         label     = "Total Fatalities",
+         unit      = "Number of fatalities"),
+    list(indicator = "total_fatalities_per_100k",
+         label     = "Total Fatalities per 100,000 Population",
+         unit      = "Fatality count per 100,000 population"),
+    list(indicator = "count_conflict_events",
+         label     = "Count of Conflict Events",
+         unit      = "Event counts"),
+    list(indicator = "count_conflict_events_per_100k",
+         label     = "Count of Conflict Events per 100,000 Population",
+         unit      = "Event count per 100,000 population")
+  )
+  conflict_rows <- dplyr::bind_rows(lapply(unique(rows$country), function(ctry) {
+    dplyr::bind_rows(lapply(conflict_var_defs, function(cv) {
+      tibble::tibble(
+        country             = ctry,
+        pillar              = "Conflict",
+        indicator           = cv$indicator,
+        polarity            = -1L,
+        label               = cv$label,
+        unit_of_measurement = cv$unit,
+        data_source         = "ACLED API",
+        data_year           = "2016-2025",
+        used_in_sepi        = FALSE,
+        weight              = NA_character_
+      )
+    }))
+  }))
+  rows <- dplyr::bind_rows(rows, conflict_rows)
 
   openxlsx::addWorksheet(wb, "Indicator_Details")
   openxlsx::writeData(wb, "Indicator_Details", rows, headerStyle = header_style)
@@ -504,7 +604,7 @@ export_sepi_excel_raw_subindicators <- function(sepi_results,
                                                 version,
                                                 output_dir = "outputs") {
 
-  fname <- file.path(output_dir, "sepi_results_v1_aligned_equal_weighted_raw_subindicators.xlsx")
+  fname <- file.path(output_dir, "sepi_results_v1_equal_weighted_raw_subindicators.xlsx")
   wb    <- openxlsx::createWorkbook()
 
   header_style <- openxlsx::createStyle(textDecoration = "bold")
@@ -545,6 +645,38 @@ build_pillar_descriptions_sheet <- function(wb, header_style) {
       "Poverty Reduction Index",
       "Climate Resilience Index"
     ),
+    pillar_overview = c(
+      paste(
+        "This pillar measures the severity of food insecurity across Admin-1 regions using the share of the population classified in IPC Phase 3 (Crisis) or higher.",
+        "Populations at this threshold and above are those experiencing significant food consumption gaps reflected in acute malnutrition, or who are only marginally able to meet minimum food needs by depleting essential livelihood assets or resorting to crisis-coping strategies.",
+        "The Integrated Food Security Phase Classification (IPC), as the primary international mechanism for food security analysis underpinned by multistakeholder technical consensus, provides the evidence base for this classification.",
+        "A higher pillar score indicates greater socio-economic resilience in this dimension."
+      ),
+      paste(
+        "This pillar assesses the degree to which populations have access to and participate in formal education.",
+        "It draws on indicators such as school attendance rates and literacy levels across the school-age population.",
+        "Education is treated as a foundational enabler of economic opportunity, social cohesion, and long-term resilience to conflict.",
+        "A higher pillar score indicates greater socio-economic resilience in this dimension."
+      ),
+      paste(
+        "This pillar evaluates the availability of healthcare services relative to population size and geographic density.",
+        "It is primarily measured through the number of functional health facilities per population at the Admin-1 level.",
+        "Better health access is associated with greater community resilience and reduced vulnerability to shocks that can drive or sustain conflict.",
+        "A higher pillar score indicates greater socio-economic resilience in this dimension."
+      ),
+      paste(
+        "This pillar captures the economic welfare of the population, proxied through per capita income or consumption expenditure measures.",
+        "Regions with lower economic welfare face heightened livelihood stress, limiting households' ability to cope with shocks and increasing susceptibility to conflict.",
+        "It serves as a broad indicator of material deprivation and economic marginalisation.",
+        "A higher pillar score indicates greater socio-economic resilience in this dimension."
+      ),
+      paste(
+        "This pillar measures environmental conditions that affect livelihoods, food production, and population stability.",
+        "It incorporates indicators such as drought severity (PDSI), vegetation health (NDVI), absorbed solar radiation (FAPAR), and soil moisture anomalies — all derived from remote sensing data.",
+        "In line with the humanitarian-development-peace nexus, climate-induced stressors are recognised as compounding drivers of fragility, forced displacement, and conflict vulnerability across the Horn of Africa.",
+        "A higher pillar score indicates greater socio-economic resilience in this dimension."
+      )
+    ),
     stringsAsFactors = FALSE,
     check.names = FALSE
   )
@@ -553,6 +685,10 @@ build_pillar_descriptions_sheet <- function(wb, header_style) {
   openxlsx::writeData(wb, "Pillar_Descriptions", pillar_desc, headerStyle = header_style)
   openxlsx::setColWidths(wb, "Pillar_Descriptions", cols = 1, widths = 25)
   openxlsx::setColWidths(wb, "Pillar_Descriptions", cols = 2, widths = 80)
+  openxlsx::setColWidths(wb, "Pillar_Descriptions", cols = 4, widths = 120)
+  wrap_style <- openxlsx::createStyle(wrapText = TRUE)
+  openxlsx::addStyle(wb, "Pillar_Descriptions", style = wrap_style,
+                     rows = 2:6, cols = 4, gridExpand = TRUE)
 }
 
 build_conflict_data_sheet <- function(wb, header_style) {
