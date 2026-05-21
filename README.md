@@ -97,15 +97,14 @@ Validates a version against external criteria and its robustness variants.
 |---------|-------------|
 | A. Version comparison | Rank correlations across robustness variants declared in the version JSON |
 | B. Criterion validity (IDP) | Spearman rho between SEPI and IOM IDP displacement density (H1: rho < −0.6) |
-| C. Discriminatory capacity | ROC / AUC test: can SEPI identify displacement hotspots? (target: AUC ≥ 0.70) |
-| D. Visualisations (displacement) | Scatter and ROC curve PNGs saved to `outputs/figures/criterion_validity/` |
-| E. Criterion validity (conflict) | Parallel Spearman + AUC tests using ACLED conflict intensity across three time windows |
+| C. Visualisations (displacement) | Scatter PNGs saved to `outputs/figures/criterion_validity/` |
+| D. Criterion validity (conflict) | Parallel Spearman tests using ACLED conflict intensity across three time windows |
 
 ---
 
 ### `05_compare_versions.R` — V1 vs V3 head-to-head comparison
 
-Always compares `v1_aligned_equal_geometric` against `v3_aligned_conflict_weighted` on rank stability, criterion validity (IDP), and discriminatory capacity (AUC). Produces a summary scorecard.
+Always compares `v1_aligned_equal_geometric` against `v3_aligned_conflict_weighted` on rank stability and criterion validity (IDP and conflict). Produces a summary scorecard.
 
 ---
 
@@ -224,4 +223,4 @@ Per country: `rankings_<country>.png`, `pillars_<country>.png`, `sepi_conflict_<
 
 ## Dependencies
 
-`tidyverse`, `psych`, `purrr`, `rlang`, `jsonlite`, `ggrepel`, `openxlsx`, `sf`, `patchwork`, `pROC`, `gt`, `rvest`, `caret`, `httr2`
+`tidyverse`, `psych`, `purrr`, `rlang`, `jsonlite`, `ggrepel`, `openxlsx`, `sf`, `patchwork`, `gt`, `rvest`, `caret`, `httr2`

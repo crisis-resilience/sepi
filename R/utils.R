@@ -69,7 +69,6 @@ country_label <- function(name) {
 
 COUNTRY_CODE_MAP <- c(south_sudan = "SSD", kenya = "KEN", somalia = "SOM")
 COUNTRIES        <- c("kenya", "somalia", "south_sudan")
-MIN_N_ROC        <- 8L
 
 # ---- Theme for plots -------------------------------------------------------
 

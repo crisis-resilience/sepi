@@ -11,10 +11,8 @@
 #   B.  Criterion validity — Spearman rho between SEPI and 4 external
 #       criteria: IDP displacement density + ACLED conflict (10y / 5y / 2025).
 #       Target: rho < -0.6.
-#   C.  Discriminatory capacity (AUC) — same 4 criterion sources; hotspot =
-#       ADM1 above within-country median. AUC >= 0.70 acceptable.
-#   D.  Summary scorecard — colour-coded PNG table of all metrics.
-#   E.  Unit-level rank tables — ADM1 rankings across primary version and
+#   C.  Summary scorecard — colour-coded PNG table of all metrics.
+#   D.  Unit-level rank tables — ADM1 rankings across primary version and
 #       both variants, with shift (Delta) highlighted where |Delta| >= 3.
 #
 # No inputs required beyond the data files already used by the pipeline.
@@ -22,11 +20,9 @@
 
 source("R/setup.R")
 
-if (!requireNamespace("pROC", quietly = TRUE)) install.packages("pROC")
-
 source("R/criterion_validity_conflict.R")
 
-# COUNTRY_CODE_MAP, COUNTRIES, MIN_N_ROC defined in R/utils.R
+# COUNTRY_CODE_MAP, COUNTRIES defined in R/utils.R
 
 # ── Load data ──────────────────────────────────────────────────────────────────
 # v1 and v3 have different country configs (different indicator sets),
@@ -49,7 +45,7 @@ cat("Done.\n\n")
 # ── IDP data (shared across B and C) ──────────────────────────────────────────
 idp_data <- load_idp_data()
 
-# criterion_validity(), auc_capacity(), idp_criterion_fn(), conflict_criterion_fn()
+# criterion_validity(), idp_criterion_fn(), conflict_criterion_fn()
 # are defined in R/criterion_validity_conflict.R.
 
 # Registry of all criterion sources used in the scorecard.
@@ -371,71 +367,9 @@ for (src_key in names(CRITERION_SOURCES)) {
   cv_tables[[src_key]] <- dplyr::bind_rows(rows)
 }
 
-# ============================================================================
-# C. Discriminatory Capacity (AUC) — same 4 criterion sources
-# ============================================================================
-cat("\n========================================\n")
-cat(" C. Discriminatory Capacity — AUC\n")
-cat("========================================\n")
-cat(" Hotspot = ADM1 above within-country median of criterion\n")
-cat(" Lower SEPI -> higher P(hotspot); AUC >= 0.70 acceptable\n\n")
-
-auc_tables <- list()
-
-for (src_key in names(CRITERION_SOURCES)) {
-  src <- CRITERION_SOURCES[[src_key]]
-  cat("---- ", src$label, " ----\n", sep = "")
-
-  rows <- list()
-  for (country in COUNTRIES) {
-    fn     <- src$fn_builder(country)
-    auc_v1 <- auc_capacity(results_v1, country, fn)
-    auc_v3 <- auc_capacity(results_v3, country, fn)
-
-    v1_ci_str <- if (!is.na(auc_v1$auc))
-                   sprintf("%.3f-%.3f", auc_v1$ci_lo, auc_v1$ci_hi) else "\u2014"
-    v3_ci_str <- if (!is.na(auc_v3$auc))
-                   sprintf("%.3f-%.3f", auc_v3$ci_lo, auc_v3$ci_hi) else "\u2014"
-
-    rows[[country]] <- data.frame(
-      country    = country_label(country),
-      v1_auc     = round(auc_v1$auc, 3),
-      v1_ci      = v1_ci_str,
-      v1_n       = auc_v1$n,
-      v1_verdict = auc_v1$verdict,
-      v3_auc     = round(auc_v3$auc, 3),
-      v3_ci      = v3_ci_str,
-      v3_n       = auc_v3$n,
-      v3_verdict = auc_v3$verdict,
-      stringsAsFactors = FALSE
-    )
-
-    cat(country_label(country), "\n")
-    if (!is.na(auc_v1$auc)) {
-      cat(sprintf("  v1: AUC = %.3f  (95%% CI: %s)  n = %d  [%s]\n",
-                  auc_v1$auc, v1_ci_str, auc_v1$n, auc_v1$verdict))
-    } else {
-      cat(sprintf("  v1: AUC = n/a  n = %d  [%s]\n",
-                  auc_v1$n, auc_v1$verdict))
-    }
-    if (!is.na(auc_v3$auc)) {
-      cat(sprintf("  v3: AUC = %.3f  (95%% CI: %s)  n = %d  [%s]\n",
-                  auc_v3$auc, v3_ci_str, auc_v3$n, auc_v3$verdict))
-    } else {
-      cat(sprintf("  v3: AUC = n/a  n = %d  [%s]\n",
-                  auc_v3$n, auc_v3$verdict))
-    }
-  }
-  cat("\n")
-  auc_tables[[src_key]] <- dplyr::bind_rows(rows)
-}
-
-# Preserve prior single-table names for any downstream references.
-cv_tbl  <- cv_tables$displacement
-auc_tbl <- auc_tables$displacement
 
 # ============================================================================
-# D. Summary Scorecard — PNG table
+# C. Summary Scorecard — PNG table
 # ============================================================================
 for (pkg in c("gt", "webshot2")) {
   if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
@@ -443,7 +377,7 @@ for (pkg in c("gt", "webshot2")) {
 
 cat("\n")
 cat(strrep("=", 72), "\n")
-cat(" D. SUMMARY SCORECARD — v1_equal_geometric vs v3_conflict_weighted\n")
+cat(" C. SUMMARY SCORECARD — v1_equal_geometric vs v3_conflict_weighted\n")
 cat(strrep("=", 72), "\n\n")
 
 avg_stability_v1 <- mean(stability_tbl$v1_mean, na.rm = TRUE)
@@ -507,25 +441,7 @@ cv_rows_gt <- purrr::imap_dfr(cv_tables, function(tbl, src_key) {
     )
 })
 
-# Section 3: AUC — one row group per criterion source
-auc_rows_gt <- purrr::imap_dfr(auc_tables, function(tbl, src_key) {
-  lbl <- CRITERION_SOURCES[[src_key]]$label
-  tbl |>
-    dplyr::transmute(
-      dimension  = paste0("Discriminatory Capacity (AUC) \u2014 ", lbl),
-      country    = country,
-      v1_value   = v1_auc,
-      v1_detail  = dplyr::if_else(!is.na(v1_auc),
-                     sprintf("95%% CI: %s  |  n = %d", v1_ci, v1_n), ""),
-      v1_verdict = v1_verdict,
-      v3_value   = v3_auc,
-      v3_detail  = dplyr::if_else(!is.na(v3_auc),
-                     sprintf("95%% CI: %s  |  n = %d", v3_ci, v3_n), ""),
-      v3_verdict = v3_verdict
-    )
-})
-
-scorecard_long <- dplyr::bind_rows(rank_rows, mars_tbl, topk_tbl, cv_rows_gt, auc_rows_gt)
+scorecard_long <- dplyr::bind_rows(rank_rows, mars_tbl, topk_tbl, cv_rows_gt)
 
 # ── Build gt table ─────────────────────────────────────────────────────────────
 
@@ -623,7 +539,7 @@ gt_tbl <- scorecard_long |>
     footnote = sprintf("Top-%d stability: >= 80%% stable, 60-80%% moderate, <60%% unstable", TOPK)
   ) |>
   gt::tab_footnote(
-    footnote = "Criterion validity: rho < -0.60 SUPPORTED; AUC >= 0.70 acceptable, >= 0.80 good"
+    footnote = "Criterion validity: rho < -0.60 SUPPORTED"
   ) |>
   gt::tab_footnote(
     footnote = paste(
@@ -654,7 +570,7 @@ message("Saved: ", png_path)
 cat("\nComparison complete.\n")
 
 # ============================================================================
-# E. Unit-Level Rank Tables — side-by-side ADM1 rankings across variants
+# D. Unit-Level Rank Tables — side-by-side ADM1 rankings across variants
 # ============================================================================
 # For each country and each version family (v1 / v3):
 #   Region | SEPI | Primary Rank | Z-score Rank | Δ | BoD Rank | Δ
@@ -667,7 +583,7 @@ cat("\nComparison complete.\n")
 # ============================================================================
 cat("\n")
 cat(strrep("=", 72), "\n")
-cat(" E. Unit-Level Rank Tables — per country, per version family\n")
+cat(" D. Unit-Level Rank Tables — per country, per version family\n")
 cat(strrep("=", 72), "\n")
 cat(" Rank 1 = best-off (highest SEPI).  \u0394 = variant rank \u2212 primary rank.\n")
 cat(" Amber = |\u0394| >= 3.  Bold = bottom-5 worst-off in primary version.\n\n")

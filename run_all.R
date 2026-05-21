@@ -78,7 +78,7 @@ cat(sprintf("  Done (%s)\n", .elapsed(t0)))
 # ── [5/6] Version comparison ──────────────────────────────────────────────────
 .banner(5, "Version comparison",
   paste("Head-to-head: v1_aligned_equal_geometric vs v3_aligned_conflict_weighted",
-        "\n        Rank stability, criterion validity, discriminatory capacity (AUC)"))
+        "\n        Rank stability, criterion validity (IDP + conflict)"))
 t0 <- Sys.time()
 source("05_compare_versions.R")
 cat(sprintf("  Done (%s)\n", .elapsed(t0)))

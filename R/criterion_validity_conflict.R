@@ -15,8 +15,7 @@
 # data as `count_conflicts_events_per_1k_YYYY`. Because population is fixed
 # within the ADM1 unit, summing the per-1k yearly values is rank-equivalent
 # to dividing the total event count over the window by population. Spearman
-# rank correlation and ROC/AUC are therefore computed on the summed per-1k
-# series directly.
+# rank correlation is therefore computed on the summed per-1k series directly.
 # ============================================================================
 
 # ---- IDP data loader -------------------------------------------------------
@@ -107,55 +106,6 @@ criterion_validity <- function(sepi_results, country, criterion_fn) {
   list(rho = rho, p = p_val, n = nrow(merged), verdict = verdict)
 }
 
-#' AUC for SEPI predicting hotspots defined by any criterion.
-#'
-#' @param criterion_fn Function returning tibble with adm1_pcode, criterion_value.
-#' @return list(auc, ci_lo, ci_hi, n, verdict)
-auc_capacity <- function(sepi_results, country, criterion_fn, min_n = MIN_N_ROC) {
-  sepi_df <- sepi_results[[country]]
-  if (is.null(sepi_df))
-    return(list(auc = NA_real_, ci_lo = NA_real_, ci_hi = NA_real_,
-                n = 0L, verdict = "no data"))
-
-  criterion <- criterion_fn(sepi_df)
-  if (nrow(criterion) == 0)
-    return(list(auc = NA_real_, ci_lo = NA_real_, ci_hi = NA_real_,
-                n = 0L, verdict = "no data"))
-
-  merged <- dplyr::inner_join(
-    dplyr::select(sepi_df, adm1_pcode, sepi),
-    dplyr::select(criterion, adm1_pcode, criterion_value),
-    by = "adm1_pcode"
-  )
-
-  n_matched <- nrow(merged)
-  if (n_matched < min_n)
-    return(list(auc = NA_real_, ci_lo = NA_real_, ci_hi = NA_real_,
-                n = n_matched, verdict = "too few units"))
-
-  threshold      <- stats::median(merged$criterion_value)
-  merged$hotspot <- as.integer(merged$criterion_value > threshold)
-  n_hotspot      <- sum(merged$hotspot)
-
-  if (n_hotspot < 2 || n_hotspot > (n_matched - 2))
-    return(list(auc = NA_real_, ci_lo = NA_real_, ci_hi = NA_real_,
-                n = n_matched, verdict = "class imbalance"))
-
-  roc_obj <- pROC::roc(merged$hotspot, merged$sepi,
-                        direction = ">", quiet = TRUE,
-                        ci = TRUE, ci.method = "delong")
-  auc_val <- as.numeric(pROC::auc(roc_obj))
-  ci_vals <- as.numeric(pROC::ci(roc_obj))
-
-  verdict <- if (auc_val >= 0.80)      "GOOD (>=0.80)"
-             else if (auc_val >= 0.70) "acceptable (>=0.70)"
-             else if (auc_val >= 0.60) "poor (0.60-0.70)"
-             else                      "no discrimination"
-
-  list(auc = auc_val, ci_lo = ci_vals[1], ci_hi = ci_vals[3],
-       n = n_matched, verdict = verdict)
-}
-
 # ---- Window resolver -------------------------------------------------------
 
 #' Resolve a conflict-window label to the vector of years it covers.
@@ -195,7 +145,7 @@ conflict_window_label <- function(window) {
 #' @param years Integer vector of years.
 #' @return Data frame with columns `adm1_pcode`, `adm1_name`, `conflict_per_1k`,
 #'   `conflict_norm`. Rows with entirely missing data are preserved so downstream
-#'   joins can still match them but Spearman/ROC skip them via complete-cases.
+#'   joins can still match them but Spearman skips them via complete-cases.
 build_conflict_criterion <- function(sepi_df, years) {
   cols <- paste0("count_conflicts_events_per_1k_", years)
   cols <- cols[cols %in% names(sepi_df)]
@@ -270,61 +220,9 @@ criterion_validity_conflict <- function(sepi_results, country, window) {
   list(rho = rho, p = p_val, n = nrow(merged), verdict = verdict)
 }
 
-# ---- Discriminatory capacity (ROC / AUC) -----------------------------------
-
-#' AUC for SEPI predicting conflict hotspots (above-median events per 1k).
-#'
-#' Mirrors `auc_capacity()` in 05_compare_versions.R for the conflict criterion.
-auc_capacity_conflict <- function(sepi_results, country, window, min_n = 8) {
-  sepi_df <- sepi_results[[country]]
-  if (is.null(sepi_df)) {
-    return(list(auc = NA_real_, ci_lo = NA_real_, ci_hi = NA_real_,
-                n = 0L, verdict = "no data"))
-  }
-
-  years     <- conflict_window_years(window)
-  criterion <- build_conflict_criterion(sepi_df, years)
-
-  merged <- dplyr::inner_join(
-    dplyr::select(sepi_df, adm1_pcode, sepi),
-    dplyr::select(criterion, adm1_pcode, conflict_per_1k),
-    by = "adm1_pcode"
-  )
-
-  n_matched <- nrow(merged)
-  if (n_matched < min_n) {
-    return(list(auc = NA_real_, ci_lo = NA_real_, ci_hi = NA_real_,
-                n = n_matched, verdict = "too few units"))
-  }
-
-  threshold      <- stats::median(merged$conflict_per_1k)
-  merged$hotspot <- as.integer(merged$conflict_per_1k > threshold)
-  n_hotspot      <- sum(merged$hotspot)
-
-  if (n_hotspot < 2 || n_hotspot > (n_matched - 2)) {
-    return(list(auc = NA_real_, ci_lo = NA_real_, ci_hi = NA_real_,
-                n = n_matched, verdict = "class imbalance"))
-  }
-
-  roc_obj <- pROC::roc(merged$hotspot, merged$sepi,
-                       direction = ">", quiet = TRUE,
-                       ci = TRUE, ci.method = "delong")
-
-  auc_val <- as.numeric(pROC::auc(roc_obj))
-  ci_vals <- as.numeric(pROC::ci(roc_obj))
-
-  verdict <- if (auc_val >= 0.80)      "GOOD (>=0.80)"
-             else if (auc_val >= 0.70) "acceptable (>=0.70)"
-             else if (auc_val >= 0.60) "poor (0.60-0.70)"
-             else                      "no discrimination"
-
-  list(auc = auc_val, ci_lo = ci_vals[1], ci_hi = ci_vals[3],
-       n = n_matched, verdict = verdict)
-}
-
 # ---- Plot builders ---------------------------------------------------------
 
-#' Merged per-country table used by both scatter and ROC builders.
+#' Merged per-country table used by scatter builders.
 #'
 #' Returns a data frame of matched ADM1 units with SEPI, raw per-1k,
 #' within-country min-max normalised per-1k, and hotspot flag.
@@ -371,47 +269,6 @@ build_conflict_scatter_panel <- function(country, merged) {
       title = country_label(country),
       x     = "SEPI score (higher = better)",
       y     = "Conflict events per 100,000 population"
-    ) +
-    theme_sepi()
-}
-
-#' Single-country ROC panel (mirrors Section E2 of 04_evaluate.R).
-build_conflict_roc_panel <- function(country, merged, min_n = 8) {
-  n_matched <- nrow(merged)
-  if (n_matched < min_n) return(NULL)
-
-  n_hotspot <- sum(merged$hotspot)
-  if (n_hotspot < 2 || n_hotspot > (n_matched - 2)) return(NULL)
-
-  roc_obj <- pROC::roc(merged$hotspot, merged$sepi,
-                       direction = ">", quiet = TRUE,
-                       ci = TRUE, ci.method = "delong")
-  auc_val <- as.numeric(pROC::auc(roc_obj))
-  ci_vals <- as.numeric(pROC::ci(roc_obj))
-
-  roc_df <- data.frame(
-    specificity = roc_obj$specificities,
-    sensitivity = roc_obj$sensitivities
-  )
-
-  threshold <- stats::median(merged$conflict_per_1k, na.rm = TRUE)
-
-  ggplot2::ggplot(roc_df, ggplot2::aes(x = 1 - specificity, y = sensitivity)) +
-    ggplot2::geom_abline(slope = 1, intercept = 0, linetype = "dashed",
-                         colour = "grey60", linewidth = 0.5) +
-    ggplot2::geom_line(colour = "#d95f0e", linewidth = 1.1) +
-    ggplot2::geom_area(fill = "#d95f0e", alpha = 0.1) +
-    ggplot2::annotate("text", x = 0.65, y = 0.15,
-                      label = sprintf("AUC = %.3f\n95%% CI: %.3f\u2013%.3f",
-                                      auc_val, ci_vals[1], ci_vals[3]),
-                      size = 3.3, colour = "grey20", hjust = 0) +
-    ggplot2::scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
-    ggplot2::scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
-    ggplot2::labs(
-      title    = country_label(country),
-      subtitle = sprintf("Hotspot = events/1k > %.4f (median)", threshold),
-      x        = "1 - Specificity (False Positive Rate)",
-      y        = "Sensitivity (True Positive Rate)"
     ) +
     theme_sepi()
 }
@@ -494,32 +351,4 @@ save_conflict_scatter_by_country <- function(sepi_results, version,
     ggplot2::ggsave(path, combined, width = length(panels) * 5, height = 6.5, dpi = 150)
     message("Saved: ", path)
   }
-}
-
-#' Save a ROC figure for a single window (panels per country with n >= min_n).
-save_conflict_roc <- function(sepi_results, window, version, min_n = 8) {
-  panels <- list()
-  for (country in names(sepi_results)) {
-    merged <- prepare_conflict_match(sepi_results[[country]], window)
-    p <- build_conflict_roc_panel(country, merged, min_n = min_n)
-    if (!is.null(p)) panels[[country]] <- p
-  }
-  if (length(panels) == 0) return(invisible(NULL))
-
-  combined <- patchwork::wrap_plots(panels, ncol = length(panels)) +
-    patchwork::plot_annotation(
-      title    = sprintf("Discriminatory Capacity: ROC — %s",
-                          conflict_window_label(window)),
-      subtitle = "Can SEPI identify conflict hotspots? | Hotspot = above-median events per 1k",
-      theme    = theme_sepi()
-    )
-
-  path <- versioned_output_path(
-    version, "figures", "criterion_validity",
-    sprintf("criterion_validity_roc_conflict_%s", window)
-  )
-  ggplot2::ggsave(path, combined,
-                  width = length(panels) * 5.5, height = 5.5, dpi = 150)
-  message("Saved: ", path)
-  invisible(path)
 }

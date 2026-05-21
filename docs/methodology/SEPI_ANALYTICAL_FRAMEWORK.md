@@ -312,13 +312,7 @@ Spearman ρ between the SEPI score and within-country min-max normalised IDP dis
 
 ---
 
-### 5.3 C. Discriminatory Capacity (AUC)
-
-ADM1 units above the median IDP displacement density are labelled hotspots. A ROC curve tests whether lower SEPI predicts hotspot status. AUC ≥ 0.70 = acceptable; ≥ 0.80 = good.
-
----
-
-### 5.4 Outputs
+### 5.3 Outputs
 
 - `outputs/figures/compare_versions/scorecard.png` — colour-coded scorecard (all metrics)
 - `outputs/figures/compare_versions/ranks_v{1|3}_{country}.png` — unit-level rank tables showing every ADM1's rank across primary version and both variants, with shift (Δ) highlighted where |Δ| ≥ 3
@@ -332,7 +326,7 @@ Two complementary external criteria test whether SEPI scores correlate with outc
 1. **IOM IDP origin data** — displacement density at ADM1 level (primary test).
 2. **ACLED conflict intensity** — events per 1,000 population, aggregated over three time windows (2016–2025, 2021–2025, 2025).
 
-Each criterion is examined with a Spearman rank correlation (H₁: negative relationship) and a ROC/AUC hotspot test. Results for both criteria feed the version-comparison scorecard in `outputs/figures/version_comparison.png`.
+Each criterion is examined with a Spearman rank correlation (H₁: negative relationship). Results for both criteria feed the version-comparison scorecard in `outputs/figures/version_comparison.png`.
 
 ---
 
@@ -366,9 +360,9 @@ Each criterion is examined with a Spearman rank correlation (H₁: negative rela
 
 #### Analytical Method
 
-All analysis is within-country. `pop_frac_idps` is min-max normalised within each country before correlation, to control for the different time windows. **Spearman's ρ** is used (displacement data is right-skewed; hypothesis is ordinal). Threshold: ρ < −0.6 = strong negative result. Hotspot = ADM1 above within-country median displacement; AUC ≥ 0.70 = acceptable, ≥ 0.80 = good.
+All analysis is within-country. `pop_frac_idps` is min-max normalised within each country before correlation, to control for the different time windows. **Spearman's ρ** is used (displacement data is right-skewed; hypothesis is ordinal). Threshold: ρ < −0.6 = strong negative result.
 
-Outputs: `outputs/figures/criterion_validity_scatter_displacement.png` (scatter, one panel per country) and `outputs/figures/criterion_validity_roc_displacement.png` (ROC curves; Somalia omitted, n = 6 below minimum). Produced by `04_evaluate.R` Sections B–D.
+Outputs: `outputs/figures/criterion_validity_scatter_displacement.png` (scatter, one panel per country). Produced by `04_evaluate.R` Sections B–C.
 
 ---
 
@@ -376,7 +370,7 @@ Outputs: `outputs/figures/criterion_validity_scatter_displacement.png` (scatter,
 
 **H₁:** SEPI scores are negatively correlated with conflict events per 1,000 population within each country. Conflict data covers all ADM1 units (no coverage gaps) and spans 2016–2025, enabling multi-window tests.
 
-**Criterion variable:** `count_conflicts_events_per_1k` summed over the window (Battles, Explosions/Remote violence, Violence against civilians). Within-country min-max normalisation is applied for visualisation; Spearman's ρ and AUC are rank-based and unaffected.
+**Criterion variable:** `count_conflicts_events_per_1k` summed over the window (Battles, Explosions/Remote violence, Violence against civilians). Within-country min-max normalisation is applied for visualisation; Spearman's ρ is rank-based and unaffected.
 
 #### Time Windows
 
@@ -390,9 +384,9 @@ Outputs: `outputs/figures/criterion_validity_scatter_displacement.png` (scatter,
 
 `v1_aligned_equal_geometric` does not use ACLED data in construction, so the conflict criterion tests are fully independent for the primary methodology. When `v3_conflict_weighted` is included in the version comparison, its 2025 conflict window test is circular by construction (v3 weights are derived from 2025 ACLED data) and reported only as a consistency check; its 5y and 10y windows remain partially informative.
 
-Per window and country: sum `count_conflicts_events_per_1k_YYYY`, join to SEPI on `adm1_pcode`, compute Spearman ρ and ROC/AUC (hotspot = above within-country median). Same thresholds as the displacement criterion.
+Per window and country: sum `count_conflicts_events_per_1k_YYYY`, join to SEPI on `adm1_pcode`, compute Spearman ρ. Threshold: ρ < −0.6 = strong negative result.
 
-Outputs: scatter and ROC PNGs for each window (`criterion_validity_{scatter|roc}_conflict_{10y|5y|2025}.png`) saved to `outputs/figures/`. Produced by `04_evaluate.R` Section E; helpers shared with `05_compare_versions.R` via `R/criterion_validity_conflict.R`.
+Outputs: scatter PNGs for each window (`criterion_validity_scatter_conflict_{10y|5y|2025}.png`) saved to `outputs/figures/`. Produced by `04_evaluate.R` Section D; helpers shared with `05_compare_versions.R` via `R/criterion_validity_conflict.R`.
 
 ---
 
