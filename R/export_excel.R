@@ -55,7 +55,7 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
   )
 
   if (isTRUE(version$conflict_weighting)) {
-    # V3-specific README content
+    # v2-specific README content
     readme <- data.frame(
       Section = c(
         "Title",
@@ -308,10 +308,26 @@ build_results_sheet <- function(wb, sepi_results, config, version, header_style)
 
   combined <- dplyr::bind_rows(rows)
 
+  overview_path <- "data/all_adm1_overview.csv"
+  if (file.exists(overview_path)) {
+    overview <- utils::read.csv(overview_path, stringsAsFactors = FALSE,
+                                check.names = FALSE)
+    overview <- overview[, c("adm1_pcode", "adm1_overview"), drop = FALSE]
+    combined <- dplyr::left_join(combined, overview, by = "adm1_pcode")
+  }
+
   openxlsx::addWorksheet(wb, "SEPI_Results")
   openxlsx::writeData(wb, "SEPI_Results", combined, headerStyle = header_style)
-  openxlsx::setColWidths(wb, "SEPI_Results", cols = seq_len(ncol(combined)),
-                         widths = "auto")
+  openxlsx::setColWidths(wb, "SEPI_Results",
+                         cols = seq_len(ncol(combined) - 1), widths = "auto")
+  overview_col <- which(names(combined) == "adm1_overview")
+  if (length(overview_col) > 0) {
+    openxlsx::setColWidths(wb, "SEPI_Results", cols = overview_col, widths = 80)
+    wrap_style <- openxlsx::createStyle(wrapText = TRUE, valign = "top")
+    openxlsx::addStyle(wb, "SEPI_Results", style = wrap_style,
+                       rows = 2:(nrow(combined) + 1), cols = overview_col,
+                       gridExpand = TRUE)
+  }
 }
 
 build_indicator_scores_sheet <- function(wb, sepi_results, config, version, header_style) {
@@ -377,7 +393,7 @@ get_ind_to_pillar <- function(cc) {
 }
 
 # Returns the character vector of indicators that enter the SEPI score.
-# Works for pillars-based (v1/v2), se_vars-based (v3 conflict), and
+# Works for pillars-based (v1/v2), se_vars-based (v2 conflict), and
 # pillar_map-based (BoD) configs.
 get_sepi_vars <- function(cc) {
   if (!is.null(cc$pillars)) {
@@ -393,7 +409,7 @@ get_sepi_vars <- function(cc) {
 # Adding a new version only requires adding a branch here.
 get_indicator_weights <- function(cc, version, sepi_result, sepi_vars) {
   if (isTRUE(version$conflict_weighting)) {
-    eff_wts <- attr(sepi_result, "v3_effective_weights")
+    eff_wts <- attr(sepi_result, "v2_effective_weights")
     if (!is.null(eff_wts)) {
       as.character(round(eff_wts[sepi_vars[sepi_vars %in% names(eff_wts)]], 4))
     } else {
@@ -588,7 +604,7 @@ export_sepi_excel_raw_subindicators <- function(sepi_results,
                                                 version,
                                                 output_dir = "outputs") {
 
-  fname <- file.path(output_dir, "sepi_results_v1_aligned_equal_weighted_raw_subindicators.xlsx")
+  fname <- file.path(output_dir, "sepi_results_v1_equal_weighted_raw_subindicators.xlsx")
   wb    <- openxlsx::createWorkbook()
 
   header_style <- openxlsx::createStyle(textDecoration = "bold")

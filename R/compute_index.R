@@ -70,15 +70,15 @@ compute_pca_weights <- function(norm_mat) {
   weights_full
 }
 
-# ---- V3 helpers: imputation and conflict weights ----------------------------
+# ---- v2 helpers: imputation and conflict weights ----------------------------
 
-#' Impute missing values for v3 conflict-weighted computation
+#' Impute missing values for v2 conflict-weighted computation
 #'
 #' @param data      Data frame
 #' @param se_vars   Character vector of SE indicator column names
 #' @param strategy  "mean" (pop_frac_3plus→0, others→column mean) or "omit" (na.omit)
 #' @return Data frame with imputed values (or reduced rows if strategy="omit")
-impute_missing_v3 <- function(data, se_vars, strategy = "mean") {
+impute_missing_v2 <- function(data, se_vars, strategy = "mean") {
   if (strategy == "mean") {
     if ("pop_frac_3plus" %in% se_vars && "pop_frac_3plus" %in% names(data)) {
       data[["pop_frac_3plus"]][is.na(data[["pop_frac_3plus"]])] <- 0
@@ -96,7 +96,7 @@ impute_missing_v3 <- function(data, se_vars, strategy = "mean") {
   data
 }
 
-#' Compute signed conflict-correlation weights for v3
+#' Compute signed conflict-correlation weights for v2
 #'
 #' @param data         Data frame (already imputed)
 #' @param se_vars      Character vector of SE indicator column names (normalised)
@@ -170,9 +170,9 @@ compute_conflict_weights <- function(data, se_vars, conflict_col, bad_vars) {
   effective
 }
 
-# ---- V3 polarity-audit renderer --------------------------------------------
+# ---- v2 polarity-audit renderer --------------------------------------------
 
-#' Render the v3 polarity audit for one country as a PNG table
+#' Render the v2 polarity audit for one country as a PNG table
 #'
 #' Produces a gt-styled table that compares the empirical sign of each
 #' indicator's correlation with conflict against the normative polarity
@@ -182,7 +182,7 @@ compute_conflict_weights <- function(data, se_vars, conflict_col, bad_vars) {
 #'   - green  : consistent
 #'
 #' @param audit             Data frame returned by compute_conflict_weights()
-#'                          and stored as attr(sepi_results[[c]], "v3_polarity_audit").
+#'                          and stored as attr(sepi_results[[c]], "v2_polarity_audit").
 #' @param country_label_str Pretty country label for the title.
 #' @param min_abs_r         Threshold below which |r| is deemed uninformative.
 #' @param out_path          Destination PNG path.
@@ -234,7 +234,7 @@ render_polarity_audit_png <- function(audit,
 
   tbl <- gt::gt(df) |>
     gt::tab_header(
-      title    = gt::md(paste0("**", country_label_str, " — v3 polarity audit**")),
+      title    = gt::md(paste0("**", country_label_str, " — v2 polarity audit**")),
       subtitle = sprintf(
         "%d / %d indicator(s) mismatched; %d uninformative (|r| < %.2f).",
         n_mismatch, n_total, n_uninf, min_abs_r
@@ -280,11 +280,11 @@ render_polarity_audit_png <- function(audit,
 #' Convenience wrapper: render polarity audit PNGs for every country
 #'
 #' Loops over a sepi_results list and writes one PNG per country whose
-#' data frame carries a "v3_polarity_audit" attribute.  Non-v3 countries
+#' data frame carries a "v2_polarity_audit" attribute.  Non-v2 countries
 #' are silently skipped.
 render_polarity_audits <- function(sepi_results, version) {
   for (country in names(sepi_results)) {
-    audit <- attr(sepi_results[[country]], "v3_polarity_audit")
+    audit <- attr(sepi_results[[country]], "v2_polarity_audit")
     if (is.null(audit)) next
 
     out_path <- versioned_output_path(version, "figures", "polarity_audit",
@@ -375,12 +375,12 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
     stop("compute_sepi() requires either 'country_name' or 'country_config'.")
   }
 
-  # ---- V3 conflict-weighted path --------------------------------------------
+  # ---- v2 conflict-weighted path --------------------------------------------
   if (isTRUE(version$conflict_weighting)) {
     cfg <- cfg_resolved
     if (is.null(cfg$se_vars) || is.null(cfg$conflict_col)) {
-      stop("V3 conflict_weighting is TRUE but country config is missing ",
-           "se_vars or conflict_col. Check versions/v3_conflict_weighted.json.")
+      stop("v2 conflict_weighting is TRUE but country config is missing ",
+           "se_vars or conflict_col. Check versions/v2_conflict_weighted.json.")
     }
 
     se_vars      <- cfg$se_vars
@@ -390,9 +390,9 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
     granular_vars <- cfg$granular_vars
 
     # 1. Impute
-    data <- impute_missing_v3(data, c(se_vars, conflict_col), cfg$imputation)
+    data <- impute_missing_v2(data, c(se_vars, conflict_col), cfg$imputation)
 
-    # 2. Normalise SE vars using the configured method (no polarity flip for v3)
+    # 2. Normalise SE vars using the configured method (no polarity flip for v2)
     norm_fn <- switch(version$normalisation,
       min_max = normalise_min_max,
       z_score = normalise_z_score,
@@ -430,7 +430,7 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
       n_mismatch <- sum(polarity_audit$mismatch, na.rm = TRUE)
 
       if (n_mismatch > 0) {
-        message("  [v3 polarity audit] ", n_mismatch, " / ", n_total,
+        message("  [v2 polarity audit] ", n_mismatch, " / ", n_total,
                 " indicator(s) with empirical \u2260 normative polarity ",
                 "(|r| \u2265 ", min_abs_r, "):")
         mm <- polarity_audit[polarity_audit$mismatch, , drop = FALSE]
@@ -444,7 +444,7 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
           ))
         }
       } else {
-        message("  [v3 polarity audit] all ", n_total,
+        message("  [v2 polarity audit] all ", n_total,
                 " indicator(s) consistent (or |r| < ", min_abs_r, ")")
       }
     }
@@ -453,7 +453,7 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
     weight_cols <- paste0(names(eff_weights), "_norm")
     weight_cols <- weight_cols[weight_cols %in% names(data)]
     if (length(weight_cols) == 0) {
-      stop("No normalised SE indicator columns found for v3 computation.")
+      stop("No normalised SE indicator columns found for v2 computation.")
     }
     norm_mat <- as.matrix(data[, weight_cols, drop = FALSE])
     # Match weight vector to the columns actually present
@@ -507,8 +507,8 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
     }
 
     # Store effective weights as an attribute for export
-    attr(data, "v3_effective_weights") <- eff_weights
-    attr(data, "v3_polarity_audit")    <- polarity_audit
+    attr(data, "v2_effective_weights") <- eff_weights
+    attr(data, "v2_polarity_audit")    <- polarity_audit
     attr(data, "sepi_version") <- version$name
 
     return(data)
@@ -532,8 +532,8 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
     pillar_vars <- unname(unlist(pillar_map))
     pillar_vars <- pillar_vars[pillar_vars %in% names(data)]
 
-    # 1. Impute (same strategy as v3)
-    data <- impute_missing_v3(data, pillar_vars, cfg$imputation)
+    # 1. Impute (same strategy as v2)
+    data <- impute_missing_v2(data, pillar_vars, cfg$imputation)
 
     # 2. Normalise pillar representative indicators to [0,1] with min-max
     for (v in pillar_vars) {
@@ -579,7 +579,7 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
       data$n_pillars <- NA_integer_
     }
 
-    # 7. Normalise granular_vars for export (same as v3 path)
+    # 7. Normalise granular_vars for export (same as v2 path)
     granular_vars <- cfg$granular_vars
     if (!is.null(granular_vars)) {
       for (v in granular_vars) {
@@ -825,7 +825,7 @@ indicator_sensitivity <- function(data, country_config, version) {
     return(result)
   }
 
-  # ---- V3 path: se_vars instead of pillars ----------------------------------
+  # ---- v2 path: se_vars instead of pillars ----------------------------------
   if (isTRUE(version$conflict_weighting)) {
     se_vars <- unlist(country_config$se_vars)   # ensure character vector, not list
     n_total <- length(se_vars)

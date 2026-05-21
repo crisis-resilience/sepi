@@ -25,7 +25,7 @@ source("R/criterion_validity_conflict.R")
 # ── Configure + Load ──────────────────────────────────────────────────────────
 # When sourced from run_all.R, .sepi_run_version is set there; otherwise use the
 # version defined below.
-version      <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v1_aligned_equal_geometric  # ← change to switch version under evaluation
+version      <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v1_equal_geometric  # ← change to switch version under evaluation
 all_data     <- load_all_data(version = version)
 sepi_results <- compute_all_countries(all_data, version)
 
@@ -222,7 +222,7 @@ cat("Displacement visualisations complete.\n")
 # external criterion, over three time windows:
 #   "10y"  -> 2016–2025
 #   "5y"   -> 2021–2025
-#   "2025" -> 2025 only (circular for v3_conflict_weighted)
+#   "2025" -> 2025 only (circular for v2_conflict_weighted)
 # Produces 3 scatter PNGs (one per window).
 
 cat("\n========================================\n")
@@ -230,7 +230,7 @@ cat(" Criterion Validity — ACLED Conflict Intensity\n")
 cat("========================================\n")
 cat(" H1: lower SEPI -> higher conflict events per 1k (rho < 0)\n")
 cat(" Target: rho < -0.6 (strong negative)\n")
-cat(" Note: 2025 window is circular for v3_conflict_weighted\n\n")
+cat(" Note: 2025 window is circular for v2_conflict_weighted\n\n")
 
 conflict_windows <- c("10y", "5y", "2025")
 

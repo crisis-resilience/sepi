@@ -1,14 +1,14 @@
 {
-  "name": "v3_aligned_bod",
-  "description": "Robustness check: v3_aligned_conflict_weighted indicator set with Benefit of the Doubt (BoD/DEA) weighting instead of conflict-correlation weights",
+  "name": "v2_zscore",
+  "description": "Robustness check: v2_conflict_weighted with z-score normalisation instead of min-max",
   "methodology": {
-    "normalisation": "min_max",
-    "within_pillar_agg": "bod",
+    "normalisation": "z_score",
+    "within_pillar_agg": "conflict_weighted",
     "across_pillar_agg": "none",
-    "weighting": "bod",
-    "bod_weighting": true,
-    "conflict_weighting": false,
-    "bod_weight_flex": 0.5
+    "weighting": "conflict",
+    "geometric_floor": 0.001,
+    "conflict_weighting": true,
+    "skip_final_rescale": true
   },
   "countries": {
     "kenya": {
@@ -72,7 +72,7 @@
       ],
       "pillar_map": {
         "food_security": "pop_frac_3plus",
-        "education": "primary_school_net_attendance_total",
+        "education": "literacy_percent_total",
         "health": "health_fac_per_10k_pop",
         "economic": "poverty_headcount_pct",
         "climate": "rs_ndvi"

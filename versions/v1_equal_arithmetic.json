@@ -1,11 +1,11 @@
 {
-  "name": "v1_aligned_equal_geometric",
-  "description": "Equal weights — arithmetic mean within pillars, geometric mean across pillars — with curated country-specific indicator sets from the indicator alignment exercise",
-  "robustness_variants": ["v1_aligned_zscore", "v1_aligned_bod"],
+  "name": "v1_equal_arithmetic",
+  "description": "Equal weights — arithmetic mean both within and across pillars — with curated country-specific indicator sets from the indicator alignment exercise",
+  "robustness_variants": ["v1_zscore", "v1_bod"],
   "methodology": {
     "normalisation": "min_max",
     "within_pillar_agg": "arithmetic",
-    "across_pillar_agg": "geometric",
+    "across_pillar_agg": "arithmetic",
     "weighting": "equal",
     "geometric_floor": 0.001,
     "conflict_weighting": false

@@ -18,7 +18,7 @@ source("R/export_excel.R")
 # ── Configure ─────────────────────────────────────────────────────────────────
 # When sourced from run_all.R, .sepi_run_version is set there; otherwise use the
 # version defined below.
-version <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v1_aligned_equal_geometric  # ← change to switch version
+version <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v1_equal_geometric  # ← change to switch version
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 all_data         <- load_all_data(version = version)

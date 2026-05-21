@@ -74,7 +74,7 @@ plot_pillar_heatmap <- function(sepi_result, country_name,
                                  country_config, conflict_data = NULL,
                                  version = NULL, save = TRUE) {
   label       <- country_label(country_name)
-  # For v1/v2 use pillars definition; for v3 use pillar_* columns present in data
+  # For v1/v2 use pillars definition; for v2 use pillar_* columns present in data
   if (!is.null(country_config$pillars)) {
     pillar_cols <- paste0("pillar_", names(country_config$pillars))
   } else {
@@ -398,7 +398,7 @@ plot_pillar_maps <- function(sepi_result, country_name, country_config,
                               version        = NULL,
                               save           = TRUE) {
   label          <- country_label(country_name)
-  # For v1/v2 use pillars definition; for v3 use pillar_* columns present in data
+  # For v1/v2 use pillars definition; for v2 use pillar_* columns present in data
   if (!is.null(country_config$pillars)) {
     pillar_cols <- paste0("pillar_", names(country_config$pillars))
   } else {

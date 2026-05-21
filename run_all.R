@@ -6,13 +6,13 @@
 #   02  Explore and screen indicators
 #   03  Compute SEPI, visualise, export
 #   04  Version comparison and criterion validity evaluation
-#   05  Version comparison (v1 vs v3, always both)
-#   06  Sensitivity analysis (SA1 + SA2, always both v1 and v3)
+#   05  Version comparison (v1 vs v2, always both)
+#   06  Sensitivity analysis (SA1 + SA2, always both v1 and v2)
 #
 # Change `active_version` below to run the full pipeline for a different
 # version. Scripts 02, 03, and 04 will pick it up automatically.
-# Scripts 05 and 06 always compare v1_aligned_equal_geometric against
-# v3_aligned_conflict_weighted regardless of this setting.
+# Scripts 05 and 06 always compare v1_equal_geometric against
+# v2_conflict_weighted regardless of this setting.
 #
 # Usage:
 #   source("run_all.R")
@@ -23,7 +23,7 @@
 source("R/config.R")
 
 # ── Version ───────────────────────────────────────────────────────────────────
-active_version <- VERSIONS$v1_aligned_equal_geometric  # ← change here
+active_version <- VERSIONS$v1_equal_geometric  # ← change here
 
 # Expose to sub-scripts (02_explore, 03_run_sepi, 04_evaluate check for this)
 .sepi_run_version <- active_version
@@ -77,7 +77,7 @@ cat(sprintf("  Done (%s)\n", .elapsed(t0)))
 
 # ── [5/6] Version comparison ──────────────────────────────────────────────────
 .banner(5, "Version comparison",
-  paste("Head-to-head: v1_aligned_equal_geometric vs v3_aligned_conflict_weighted",
+  paste("Head-to-head: v1_equal_geometric vs v2_conflict_weighted",
         "\n        Rank stability, criterion validity (IDP + conflict)"))
 t0 <- Sys.time()
 source("05_compare_versions.R")
@@ -86,7 +86,7 @@ cat(sprintf("  Done (%s)\n", .elapsed(t0)))
 # ── [6/6] Sensitivity analysis ────────────────────────────────────────────────
 .banner(6, "Sensitivity analysis",
   paste("Leave-one-indicator (SA1) and leave-one-pillar (SA2)",
-        "\n        for v1_aligned_equal_geometric and v3_aligned_conflict_weighted"))
+        "\n        for v1_equal_geometric and v2_conflict_weighted"))
 t0 <- Sys.time()
 source("06_sensitivity_analysis.R")
 cat(sprintf("  Done (%s)\n", .elapsed(t0)))

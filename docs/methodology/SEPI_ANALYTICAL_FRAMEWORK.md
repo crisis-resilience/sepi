@@ -6,20 +6,20 @@ This document consolidates the full methodology for the Socio-Economic Peacebuil
 
 ## Table of Contents
 
-1. [Baseline Methodology — `v1_aligned_equal_geometric`](#baseline-methodology-v1_aligned_equal_geometric)
-2. [Robustness Check I — Z-Score Normalisation (`v1_aligned_zscore`)](#robustness-check-i-z-score-normalisation-v1_aligned_zscore)
-3. [Robustness Check II — Benefit of the Doubt Weighting (`v1_aligned_bod`)](#robustness-check-ii-benefit-of-the-doubt-weighting-v1_aligned_bod)
+1. [Baseline Methodology — `v1_equal_geometric`](#baseline-methodology-v1_equal_geometric)
+2. [Robustness Check I — Z-Score Normalisation (`v1_zscore`)](#robustness-check-i-z-score-normalisation-v1_zscore)
+3. [Robustness Check II — Benefit of the Doubt Weighting (`v1_bod`)](#robustness-check-ii-benefit-of-the-doubt-weighting-v1_bod)
 4. [Sensitivity Analysis](#sensitivity-analysis)
-5. [Version Comparison — v1 vs v3](#version-comparison-v1-vs-v3)
+5. [Version Comparison — v1 vs v2](#version-comparison-v1-vs-v2)
 6. [Criterion Validity Assessment](#criterion-validity-assessment)
 
 ---
 
-## 1. Baseline Methodology — `v1_aligned_equal_geometric`
+## 1. Baseline Methodology — `v1_equal_geometric`
 
 The **Socio-Economic Peacebuilding Index (SEPI)** is a composite indicator measuring the structural socio-economic capacity of sub-national regions to sustain peace. It is grounded in the Humanitarian–Development–Peace Nexus: durable peace requires a foundation of socio-economic sufficiency, and structural deficits — poverty, food insecurity, poor health access, environmental degradation — act as force multipliers for instability.
 
-SEPI is computed at the **Admin-1 level** for **Kenya**, **Somalia**, and **South Sudan**. The primary methodology (`v1_aligned_equal_geometric`) uses equal weights within a pillar-structured aggregation: indicators are averaged arithmetically within each of five pillar domains, then combined into a composite score using a geometric mean across pillars. Conflict data is not used in the construction of the index; it is used only for criterion validity assessment. Scores are relative within each country; a high score means a region is performing better than other regions in the same country, not that it meets any global standard.
+SEPI is computed at the **Admin-1 level** for **Kenya**, **Somalia**, and **South Sudan**. The primary methodology (`v1_equal_geometric`) uses equal weights within a pillar-structured aggregation: indicators are averaged arithmetically within each of five pillar domains, then combined into a composite score using a geometric mean across pillars. Conflict data is not used in the construction of the index; it is used only for criterion validity assessment. Scores are relative within each country; a high score means a region is performing better than other regions in the same country, not that it meets any global standard.
 
 ---
 
@@ -41,7 +41,7 @@ All datasets are harmonised to OCHA COD administrative boundaries. Middle Juba (
 
 ### 1.2 Indicator Selection
 
-Candidates are reviewed for domain coverage in `02_explore.R` (Block A); pairs with Pearson r > 0.8 within the same pillar are pruned automatically (`R/screen_indicators.R`). Final lists are set in `versions/v1_aligned_equal_geometric.json`.
+Candidates are reviewed for domain coverage in `02_explore.R` (Block A); pairs with Pearson r > 0.8 within the same pillar are pruned automatically (`R/screen_indicators.R`). Final lists are set in `versions/v1_equal_geometric.json`.
 
 #### Indicators selected for the SEPI
 
@@ -106,7 +106,7 @@ The floor prevents log(0). The geometric mean penalises uneven pillar profiles �
 
 ---
 
-## 2. Robustness Check I — Z-Score Normalisation (`v1_aligned_zscore`)
+## 2. Robustness Check I — Z-Score Normalisation (`v1_zscore`)
 
 This check tests whether SEPI district rankings are sensitive to the choice of normalisation method — specifically, whether replacing bounded min-max scaling with z-score standardisation materially reorders districts.
 
@@ -114,7 +114,7 @@ This check tests whether SEPI district rankings are sensitive to the choice of n
 
 ### 2.1 What Differs from the Baseline
 
-| Dimension | `v1_aligned_equal_geometric` | `v1_aligned_zscore` |
+| Dimension | `v1_equal_geometric` | `v1_zscore` |
 |---|---|---|
 | Normalisation | Min-max [0, 1] | Z-score (mean 0, sd 1) |
 | Within-pillar aggregation | Arithmetic mean of min-max values → pillar score in [0, 1] | Arithmetic mean of z-scores → pillar score potentially negative |
@@ -147,7 +147,7 @@ Because z-scores can be negative, the within-pillar mean can be negative too; th
 
 ---
 
-## 3. Robustness Check II — Benefit of the Doubt Weighting (`v1_aligned_bod`)
+## 3. Robustness Check II — Benefit of the Doubt Weighting (`v1_bod`)
 
 This check tests whether SEPI district rankings are sensitive to the choice of weighting method — specifically, whether replacing equal pillar weights with data-driven, endogenous Benefit of the Doubt (BoD) weights materially reorders districts.
 
@@ -157,7 +157,7 @@ All data sources, administrative boundaries, and exclusion criteria are identica
 
 ### 3.1 What Differs from the Baseline
 
-| Dimension | `v1_aligned_equal_geometric` | `v1_aligned_bod` |
+| Dimension | `v1_equal_geometric` | `v1_bod` |
 |---|---|---|
 | Indicator inputs | Full pillar indicator sets (2–4 indicators per pillar) | One representative indicator per pillar (`pillar_map`) |
 | Within-pillar aggregation | Arithmetic mean | BoD LP (optimises per-district weights across 5 pillar representatives) |
@@ -208,7 +208,7 @@ Lower bound:               L = 0.200 × 0.5 = 0.100
 Upper bound:               U = 0.200 × 1.5 = 0.300
 ```
 
-The flexibility parameter is set via `bod_weight_flex = 0.5` in `robustness_checks/v1_aligned_bod.json`.
+The flexibility parameter is set via `bod_weight_flex = 0.5` in `robustness_checks/v1_bod.json`.
 
 **Ranking:** districts are ranked by BoD score within each country (rank 1 = strongest conditions).
 
@@ -232,7 +232,7 @@ The flexibility parameter is set via `bod_weight_flex = 0.5` in `robustness_chec
 
 ## 4. Sensitivity Analysis
 
-### Versions tested: `v1_aligned_equal_geometric` · `v3_aligned_conflict_weighted`
+### Versions tested: `v1_equal_geometric` · `v2_conflict_weighted`
 
 ---
 
@@ -258,7 +258,7 @@ A region whose SA1 mean score is close to its baseline SEPI has a stable ranking
 
 Each of the five pillar domains (Education, Health, Food Security, Economic, Climate) is dropped entirely, and the SEPI is recomputed using only the remaining four. This produces five alternative SEPI scores per region. The **SA2 score** is the arithmetic mean of these five scores.
 
-For V1, dropping a pillar removes all its indicators from within-pillar aggregation and reduces the geometric mean to four terms. For V3, dropping a pillar removes all its `se_vars` from the flat weighted sum, and conflict-correlation weights are re-estimated on the reduced indicator set.
+For V1, dropping a pillar removes all its indicators from within-pillar aggregation and reduces the geometric mean to four terms. For v2, dropping a pillar removes all its `se_vars` from the flat weighted sum, and conflict-correlation weights are re-estimated on the reduced indicator set.
 
 A region whose SA2 mean is close to its baseline performs consistently across all pillar combinations. A large deviation identifies which pillar most drives the region's ranking.
 
@@ -266,22 +266,22 @@ A region whose SA2 mean is close to its baseline performs consistently across al
 
 | Version | Within-pillar aggregation | Across-pillar aggregation | Weighting |
 |---------|--------------------------|--------------------------|-----------|
-| `v1_aligned_equal_geometric` | Arithmetic mean | Geometric mean | Equal (1/n per indicator, 1/5 per pillar) |
-| `v3_aligned_conflict_weighted` | Flat weighted sum | None (single composite) | Conflict-correlation: \|Pearson r(indicator, conflict events per 1k)\| |
+| `v1_equal_geometric` | Arithmetic mean | Geometric mean | Equal (1/n per indicator, 1/5 per pillar) |
+| `v2_conflict_weighted` | Flat weighted sum | None (single composite) | Conflict-correlation: \|Pearson r(indicator, conflict events per 1k)\| |
 
 Both versions use the same curated, country-aligned indicator sets from the indicator alignment exercise, ensuring that differences in sensitivity reflect methodology rather than indicator selection.
 
 ### 4.3 Computation
 
-All runs use the same normalisation and polarity alignment as the baseline. For V3, conflict-correlation weights are re-estimated from scratch for each reduced indicator set. The SA1/SA2 score per region is an unweighted arithmetic mean across all valid runs; regions dropped due to missing data (V3 South Sudan listwise deletion) contribute only their available runs.
+All runs use the same normalisation and polarity alignment as the baseline. For v2, conflict-correlation weights are re-estimated from scratch for each reduced indicator set. The SA1/SA2 score per region is an unweighted arithmetic mean across all valid runs; regions dropped due to missing data (v2 South Sudan listwise deletion) contribute only their available runs.
 
 Outputs (`outputs/sensitivity_analysis_comparison.xlsx` and per-country PNG comparison tables) are produced by `06_sensitivity_analysis.R`.
 
 ---
 
-## 5. Version Comparison — v1 vs v3
+## 5. Version Comparison — v1 vs v2
 
-`05_compare_versions.R` evaluates whether **v1 (equal-weighted geometric mean)** or **v3 (conflict-weighted)** should be adopted as the primary SEPI method. It assesses each version on three dimensions.
+`05_compare_versions.R` evaluates whether **v1 (equal-weighted geometric mean)** or **v2 (conflict-weighted)** should be adopted as the primary SEPI method. It assesses each version on three dimensions.
 
 ---
 
@@ -382,7 +382,7 @@ Outputs: `outputs/figures/criterion_validity_scatter_displacement.png` (scatter,
 
 #### Endogeneity Note
 
-`v1_aligned_equal_geometric` does not use ACLED data in construction, so the conflict criterion tests are fully independent for the primary methodology. When `v3_conflict_weighted` is included in the version comparison, its 2025 conflict window test is circular by construction (v3 weights are derived from 2025 ACLED data) and reported only as a consistency check; its 5y and 10y windows remain partially informative.
+`v1_equal_geometric` does not use ACLED data in construction, so the conflict criterion tests are fully independent for the primary methodology. When `v2_conflict_weighted` is included in the version comparison, its 2025 conflict window test is circular by construction (v2 weights are derived from 2025 ACLED data) and reported only as a consistency check; its 5y and 10y windows remain partially informative.
 
 Per window and country: sum `count_conflicts_events_per_1k_YYYY`, join to SEPI on `adm1_pcode`, compute Spearman ρ. Threshold: ρ < −0.6 = strong negative result.
 
@@ -396,4 +396,4 @@ Outputs: scatter PNGs for each window (`criterion_validity_scatter_conflict_{10y
 - **Security–socioeconomics decoupling.** In active conflict settings, acute security events can generate large displacement from regions that score relatively well on structural indicators. SEPI is not designed to predict displacement driven primarily by armed group activity.
 - **IDP origin data coverage.** DTM coverage is uneven across ADM1 units; ADM1 units absent from the IDP dataset are excluded, so the validation sample may not be representative.
 - **Small n in Somalia.** Six observations are insufficient for a meaningful rank correlation test. The Somalia result should not be cited as evidence for or against the index's validity until more comprehensive displacement data is available.
-- **Endogeneity in v3 conflict window (comparison only).** When `v3_conflict_weighted` is included in the version comparison, the 2025 conflict window test is circular by construction; only the 5y and 10y windows provide independent signal for that version.
+- **Endogeneity in v2 conflict window (comparison only).** When `v2_conflict_weighted` is included in the version comparison, the 2025 conflict window test is circular by construction; only the 5y and 10y windows provide independent signal for that version.

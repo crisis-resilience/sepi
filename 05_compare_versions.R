@@ -1,7 +1,7 @@
 # ============================================================================
-# 05_compare_versions.R — V1 vs V3 Head-to-Head Comparison
+# 05_compare_versions.R — V1 vs v2 Head-to-Head Comparison
 # ============================================================================
-# Compares v1_aligned_equal_geometric and v3_aligned_conflict_weighted on:
+# Compares v1_equal_geometric and v2_conflict_weighted on:
 #
 #   A.  Rank stability — Spearman rho between each version's primary results
 #       and its robustness variants (z-score, BoD). Higher mean rho = more
@@ -25,21 +25,21 @@ source("R/criterion_validity_conflict.R")
 # COUNTRY_CODE_MAP, COUNTRIES defined in R/utils.R
 
 # ── Load data ──────────────────────────────────────────────────────────────────
-# v1 and v3 have different country configs (different indicator sets),
+# v1 and v2 have different country configs (different indicator sets),
 # so each needs its own data load.
 cat("Loading data...\n")
-all_data_v1 <- load_all_data(version = VERSIONS$v1_aligned_equal_geometric)
-all_data_v3 <- load_all_data(version = VERSIONS$v3_aligned_conflict_weighted)
+all_data_v1 <- load_all_data(version = VERSIONS$v1_equal_geometric)
+all_data_v2 <- load_all_data(version = VERSIONS$v2_conflict_weighted)
 
 # ── Compute all six versions ───────────────────────────────────────────────────
 cat("Computing all versions...\n")
-results_v1        <- compute_all_countries(all_data_v1, VERSIONS$v1_aligned_equal_geometric)
-results_v1_zscore <- compute_all_countries(all_data_v1, VERSIONS$v1_aligned_zscore)
-results_v1_bod    <- compute_all_countries(all_data_v1, VERSIONS$v1_aligned_bod)
+results_v1        <- compute_all_countries(all_data_v1, VERSIONS$v1_equal_geometric)
+results_v1_zscore <- compute_all_countries(all_data_v1, VERSIONS$v1_zscore)
+results_v1_bod    <- compute_all_countries(all_data_v1, VERSIONS$v1_bod)
 
-results_v3        <- compute_all_countries(all_data_v3, VERSIONS$v3_aligned_conflict_weighted)
-results_v3_zscore <- compute_all_countries(all_data_v3, VERSIONS$v3_aligned_zscore)
-results_v3_bod    <- compute_all_countries(all_data_v3, VERSIONS$v3_aligned_bod)
+results_v2        <- compute_all_countries(all_data_v2, VERSIONS$v2_conflict_weighted)
+results_v2_zscore <- compute_all_countries(all_data_v2, VERSIONS$v2_zscore)
+results_v2_bod    <- compute_all_countries(all_data_v2, VERSIONS$v2_bod)
 cat("Done.\n\n")
 
 # ── IDP data (shared across B and C) ──────────────────────────────────────────
@@ -179,34 +179,34 @@ comparison_v1 <- compare_versions(list(
   v1_bod    = results_v1_bod
 ))
 
-comparison_v3 <- compare_versions(list(
-  v3_base   = results_v3,
-  v3_zscore = results_v3_zscore,
-  v3_bod    = results_v3_bod
+comparison_v2 <- compare_versions(list(
+  v2_base   = results_v2,
+  v2_zscore = results_v2_zscore,
+  v2_bod    = results_v2_bod
 ))
 
 stability_rows <- list()
 
 for (country in COUNTRIES) {
   mat_v1 <- comparison_v1[[country]]$rank_correlation
-  mat_v3 <- comparison_v3[[country]]$rank_correlation
+  mat_v2 <- comparison_v2[[country]]$rank_correlation
 
   rho_v1_zscore <- mat_v1["rank_v1_base", "rank_v1_zscore"]
   rho_v1_bod    <- mat_v1["rank_v1_base", "rank_v1_bod"]
-  rho_v3_zscore <- mat_v3["rank_v3_base", "rank_v3_zscore"]
-  rho_v3_bod    <- mat_v3["rank_v3_base", "rank_v3_bod"]
+  rho_v2_zscore <- mat_v2["rank_v2_base", "rank_v2_zscore"]
+  rho_v2_bod    <- mat_v2["rank_v2_base", "rank_v2_bod"]
 
   mean_v1 <- mean(c(rho_v1_zscore, rho_v1_bod), na.rm = TRUE)
-  mean_v3 <- mean(c(rho_v3_zscore, rho_v3_bod), na.rm = TRUE)
+  mean_v2 <- mean(c(rho_v2_zscore, rho_v2_bod), na.rm = TRUE)
 
   stability_rows[[country]] <- data.frame(
     country      = country_label(country),
     v1_vs_zscore = round(rho_v1_zscore, 3),
     v1_vs_bod    = round(rho_v1_bod, 3),
     v1_mean      = round(mean_v1, 3),
-    v3_vs_zscore = round(rho_v3_zscore, 3),
-    v3_vs_bod    = round(rho_v3_bod, 3),
-    v3_mean      = round(mean_v3, 3),
+    v2_vs_zscore = round(rho_v2_zscore, 3),
+    v2_vs_bod    = round(rho_v2_bod, 3),
+    v2_mean      = round(mean_v2, 3),
     stringsAsFactors = FALSE
   )
 
@@ -214,9 +214,9 @@ for (country in COUNTRIES) {
   cat("  v1: rho vs z-score =", round(rho_v1_zscore, 3),
       "| rho vs BoD =", round(rho_v1_bod, 3),
       "| mean =", round(mean_v1, 3), "\n")
-  cat("  v3: rho vs z-score =", round(rho_v3_zscore, 3),
-      "| rho vs BoD =", round(rho_v3_bod, 3),
-      "| mean =", round(mean_v3, 3), "\n\n")
+  cat("  v2: rho vs z-score =", round(rho_v2_zscore, 3),
+      "| rho vs BoD =", round(rho_v2_bod, 3),
+      "| mean =", round(mean_v2, 3), "\n\n")
 }
 
 stability_tbl <- dplyr::bind_rows(stability_rows)
@@ -225,8 +225,8 @@ cat("Full rank correlation matrices:\n")
 for (country in COUNTRIES) {
   cat("\n", country_label(country), "— v1 family:\n")
   print(round(comparison_v1[[country]]$rank_correlation, 3))
-  cat("\n", country_label(country), "— v3 family:\n")
-  print(round(comparison_v3[[country]]$rank_correlation, 3))
+  cat("\n", country_label(country), "— v2 family:\n")
+  print(round(comparison_v2[[country]]$rank_correlation, 3))
 }
 
 # ============================================================================
@@ -253,29 +253,29 @@ topk_rows <- list()
 for (country in COUNTRIES) {
   mars_v1_z <- mars_country(results_v1, results_v1_zscore, country)
   mars_v1_b <- mars_country(results_v1, results_v1_bod,    country)
-  mars_v3_z <- mars_country(results_v3, results_v3_zscore, country)
-  mars_v3_b <- mars_country(results_v3, results_v3_bod,    country)
+  mars_v2_z <- mars_country(results_v2, results_v2_zscore, country)
+  mars_v2_b <- mars_country(results_v2, results_v2_bod,    country)
 
   mean_mars_v1 <- mean(c(mars_v1_z, mars_v1_b), na.rm = TRUE)
-  mean_mars_v3 <- mean(c(mars_v3_z, mars_v3_b), na.rm = TRUE)
+  mean_mars_v2 <- mean(c(mars_v2_z, mars_v2_b), na.rm = TRUE)
 
   topk_v1_z <- topk_country(results_v1, results_v1_zscore, country, k = TOPK)
   topk_v1_b <- topk_country(results_v1, results_v1_bod,    country, k = TOPK)
-  topk_v3_z <- topk_country(results_v3, results_v3_zscore, country, k = TOPK)
-  topk_v3_b <- topk_country(results_v3, results_v3_bod,    country, k = TOPK)
+  topk_v2_z <- topk_country(results_v2, results_v2_zscore, country, k = TOPK)
+  topk_v2_b <- topk_country(results_v2, results_v2_bod,    country, k = TOPK)
 
   mean_topk_v1 <- mean(c(topk_v1_z, topk_v1_b), na.rm = TRUE)
-  mean_topk_v3 <- mean(c(topk_v3_z, topk_v3_b), na.rm = TRUE)
+  mean_topk_v2 <- mean(c(topk_v2_z, topk_v2_b), na.rm = TRUE)
 
   cat(country_label(country), "\n")
   cat(sprintf("  v1 MARS  : z-score = %.2f | BoD = %.2f | mean = %.2f\n",
               mars_v1_z, mars_v1_b, mean_mars_v1))
-  cat(sprintf("  v3 MARS  : z-score = %.2f | BoD = %.2f | mean = %.2f\n",
-              mars_v3_z, mars_v3_b, mean_mars_v3))
+  cat(sprintf("  v2 MARS  : z-score = %.2f | BoD = %.2f | mean = %.2f\n",
+              mars_v2_z, mars_v2_b, mean_mars_v2))
   cat(sprintf("  v1 Top-%d : z-score = %.0f%% | BoD = %.0f%% | mean = %.0f%%\n",
               TOPK, topk_v1_z, topk_v1_b, mean_topk_v1))
-  cat(sprintf("  v3 Top-%d : z-score = %.0f%% | BoD = %.0f%% | mean = %.0f%%\n\n",
-              TOPK, topk_v3_z, topk_v3_b, mean_topk_v3))
+  cat(sprintf("  v2 Top-%d : z-score = %.0f%% | BoD = %.0f%% | mean = %.0f%%\n\n",
+              TOPK, topk_v2_z, topk_v2_b, mean_topk_v2))
 
   mars_rows[[country]] <- data.frame(
     dimension  = "MARS (lower = more stable)",
@@ -287,11 +287,11 @@ for (country in COUNTRIES) {
       mean_mars_v1 <= 3.0 ~ "moderate",
       TRUE                ~ "unstable"
     ),
-    v3_value   = round(mean_mars_v3, 2),
-    v3_detail  = sprintf("z-score: %.2f  |  BoD: %.2f", mars_v3_z, mars_v3_b),
-    v3_verdict = dplyr::case_when(
-      mean_mars_v3 <= 1.5 ~ "stable",
-      mean_mars_v3 <= 3.0 ~ "moderate",
+    v2_value   = round(mean_mars_v2, 2),
+    v2_detail  = sprintf("z-score: %.2f  |  BoD: %.2f", mars_v2_z, mars_v2_b),
+    v2_verdict = dplyr::case_when(
+      mean_mars_v2 <= 1.5 ~ "stable",
+      mean_mars_v2 <= 3.0 ~ "moderate",
       TRUE                ~ "unstable"
     ),
     stringsAsFactors = FALSE
@@ -307,11 +307,11 @@ for (country in COUNTRIES) {
       mean_topk_v1 >= 60 ~ "moderate",
       TRUE               ~ "unstable"
     ),
-    v3_value   = round(mean_topk_v3, 1),
-    v3_detail  = sprintf("z-score: %.0f%%  |  BoD: %.0f%%", topk_v3_z, topk_v3_b),
-    v3_verdict = dplyr::case_when(
-      mean_topk_v3 >= 80 ~ "stable",
-      mean_topk_v3 >= 60 ~ "moderate",
+    v2_value   = round(mean_topk_v2, 1),
+    v2_detail  = sprintf("z-score: %.0f%%  |  BoD: %.0f%%", topk_v2_z, topk_v2_b),
+    v2_verdict = dplyr::case_when(
+      mean_topk_v2 >= 80 ~ "stable",
+      mean_topk_v2 >= 60 ~ "moderate",
       TRUE               ~ "unstable"
     ),
     stringsAsFactors = FALSE
@@ -330,7 +330,7 @@ cat("========================================\n")
 cat(" H1: lower SEPI -> higher criterion (rho < 0)\n")
 cat(" Target: rho < -0.6 (strong negative)\n")
 cat(" Sources: IDP displacement, ACLED conflict (10y / 5y / 2025)\n")
-cat(" Note: 2025 conflict is circular for v3_conflict_weighted\n\n")
+cat(" Note: 2025 conflict is circular for v2_conflict_weighted\n\n")
 
 cv_tables <- list()
 
@@ -342,7 +342,7 @@ for (src_key in names(CRITERION_SOURCES)) {
   for (country in COUNTRIES) {
     fn    <- src$fn_builder(country)
     cv_v1 <- criterion_validity(results_v1, country, fn)
-    cv_v3 <- criterion_validity(results_v3, country, fn)
+    cv_v2 <- criterion_validity(results_v2, country, fn)
 
     rows[[country]] <- data.frame(
       country    = country_label(country),
@@ -350,18 +350,18 @@ for (src_key in names(CRITERION_SOURCES)) {
       v1_p       = round(cv_v1$p, 3),
       v1_n       = cv_v1$n,
       v1_verdict = cv_v1$verdict,
-      v3_rho     = round(cv_v3$rho, 3),
-      v3_p       = round(cv_v3$p, 3),
-      v3_n       = cv_v3$n,
-      v3_verdict = cv_v3$verdict,
+      v2_rho     = round(cv_v2$rho, 3),
+      v2_p       = round(cv_v2$p, 3),
+      v2_n       = cv_v2$n,
+      v2_verdict = cv_v2$verdict,
       stringsAsFactors = FALSE
     )
 
     cat(country_label(country), "\n")
     cat(sprintf("  v1: rho = %6.3f  p = %.3f  n = %d  [%s]\n",
                 cv_v1$rho, cv_v1$p, cv_v1$n, cv_v1$verdict))
-    cat(sprintf("  v3: rho = %6.3f  p = %.3f  n = %d  [%s]\n",
-                cv_v3$rho, cv_v3$p, cv_v3$n, cv_v3$verdict))
+    cat(sprintf("  v2: rho = %6.3f  p = %.3f  n = %d  [%s]\n",
+                cv_v2$rho, cv_v2$p, cv_v2$n, cv_v2$verdict))
   }
   cat("\n")
   cv_tables[[src_key]] <- dplyr::bind_rows(rows)
@@ -377,11 +377,11 @@ for (pkg in c("gt", "webshot2")) {
 
 cat("\n")
 cat(strrep("=", 72), "\n")
-cat(" C. SUMMARY SCORECARD — v1_equal_geometric vs v3_conflict_weighted\n")
+cat(" C. SUMMARY SCORECARD — v1_equal_geometric vs v2_conflict_weighted\n")
 cat(strrep("=", 72), "\n\n")
 
 avg_stability_v1 <- mean(stability_tbl$v1_mean, na.rm = TRUE)
-avg_stability_v3 <- mean(stability_tbl$v3_mean, na.rm = TRUE)
+avg_stability_v2 <- mean(stability_tbl$v2_mean, na.rm = TRUE)
 
 # ── Build unified long table ───────────────────────────────────────────────────
 
@@ -397,11 +397,11 @@ rank_rows <- stability_tbl |>
       v1_mean >= 0.75 ~ "moderate",
       TRUE            ~ "unstable"
     ),
-    v3_value   = v3_mean,
-    v3_detail  = sprintf("z-score: %.3f  |  BoD: %.3f", v3_vs_zscore, v3_vs_bod),
-    v3_verdict = dplyr::case_when(
-      v3_mean >= 0.90 ~ "stable",
-      v3_mean >= 0.75 ~ "moderate",
+    v2_value   = v2_mean,
+    v2_detail  = sprintf("z-score: %.3f  |  BoD: %.3f", v2_vs_zscore, v2_vs_bod),
+    v2_verdict = dplyr::case_when(
+      v2_mean >= 0.90 ~ "stable",
+      v2_mean >= 0.75 ~ "moderate",
       TRUE            ~ "unstable"
     )
   ) |>
@@ -415,11 +415,11 @@ rank_rows <- stability_tbl |>
       avg_stability_v1 >= 0.75 ~ "moderate",
       TRUE                     ~ "unstable"
     ),
-    v3_value   = round(avg_stability_v3, 3),
-    v3_detail  = "",
-    v3_verdict = dplyr::case_when(
-      avg_stability_v3 >= 0.90 ~ "stable",
-      avg_stability_v3 >= 0.75 ~ "moderate",
+    v2_value   = round(avg_stability_v2, 3),
+    v2_detail  = "",
+    v2_verdict = dplyr::case_when(
+      avg_stability_v2 >= 0.90 ~ "stable",
+      avg_stability_v2 >= 0.75 ~ "moderate",
       TRUE                     ~ "unstable"
     ),
     stringsAsFactors = FALSE
@@ -435,9 +435,9 @@ cv_rows_gt <- purrr::imap_dfr(cv_tables, function(tbl, src_key) {
       v1_value   = v1_rho,
       v1_detail  = sprintf("p = %.3f  |  n = %d", v1_p, v1_n),
       v1_verdict = v1_verdict,
-      v3_value   = v3_rho,
-      v3_detail  = sprintf("p = %.3f  |  n = %d", v3_p, v3_n),
-      v3_verdict = v3_verdict
+      v2_value   = v2_rho,
+      v2_detail  = sprintf("p = %.3f  |  n = %d", v2_p, v2_n),
+      v2_verdict = v2_verdict
     )
 })
 
@@ -461,20 +461,20 @@ gt_tbl <- scorecard_long |>
   gt::gt(groupname_col = "dimension", rowname_col = "country") |>
   gt::tab_header(
     title    = gt::md("**SEPI Version Comparison Scorecard**"),
-    subtitle = "v1 Equal-Weighted Geometric  vs  v3 Conflict-Weighted"
+    subtitle = "v1 Equal-Weighted Geometric  vs  v2 Conflict-Weighted"
   ) |>
   gt::cols_label(
     v1_value   = "Score",
     v1_detail  = "Detail",
     v1_verdict = "Verdict",
-    v3_value   = "Score",
-    v3_detail  = "Detail",
-    v3_verdict = "Verdict"
+    v2_value   = "Score",
+    v2_detail  = "Detail",
+    v2_verdict = "Verdict"
   ) |>
   gt::tab_spanner(label = "v1 — Equal Geometric",  columns = c(v1_value, v1_detail, v1_verdict)) |>
-  gt::tab_spanner(label = "v3 — Conflict Weighted", columns = c(v3_value, v3_detail, v3_verdict)) |>
-  gt::fmt_number(columns = c(v1_value, v3_value), decimals = 3, use_seps = FALSE) |>
-  gt::sub_missing(columns = c(v1_value, v3_value), missing_text = "n/a") |>
+  gt::tab_spanner(label = "v2 — Conflict Weighted", columns = c(v2_value, v2_detail, v2_verdict)) |>
+  gt::fmt_number(columns = c(v1_value, v2_value), decimals = 3, use_seps = FALSE) |>
+  gt::sub_missing(columns = c(v1_value, v2_value), missing_text = "n/a") |>
   # Colour verdict cells
   gt::tab_style(
     style     = gt::cell_fill(color = "#d4edda"),
@@ -501,22 +501,22 @@ gt_tbl <- scorecard_long |>
   gt::tab_style(
     style     = gt::cell_fill(color = "#d4edda"),
     locations = gt::cells_body(
-      columns = v3_verdict,
-      rows    = v3_verdict %in% c("stable", "SUPPORTED", "GOOD (>=0.80)")
+      columns = v2_verdict,
+      rows    = v2_verdict %in% c("stable", "SUPPORTED", "GOOD (>=0.80)")
     )
   ) |>
   gt::tab_style(
     style     = gt::cell_fill(color = "#fff3cd"),
     locations = gt::cells_body(
-      columns = v3_verdict,
-      rows    = v3_verdict %in% c("moderate", "acceptable (>=0.70)", "weak negative")
+      columns = v2_verdict,
+      rows    = v2_verdict %in% c("moderate", "acceptable (>=0.70)", "weak negative")
     )
   ) |>
   gt::tab_style(
     style     = gt::cell_fill(color = "#f8d7da"),
     locations = gt::cells_body(
-      columns = v3_verdict,
-      rows    = !v3_verdict %in% c("stable", "SUPPORTED", "GOOD (>=0.80)",
+      columns = v2_verdict,
+      rows    = !v2_verdict %in% c("stable", "SUPPORTED", "GOOD (>=0.80)",
                                    "moderate", "acceptable (>=0.70)", "weak negative")
     )
   ) |>
@@ -543,10 +543,10 @@ gt_tbl <- scorecard_long |>
   ) |>
   gt::tab_footnote(
     footnote = paste(
-      "Conflict (2025) is circular for v3_conflict_weighted, which derives its",
+      "Conflict (2025) is circular for v2_conflict_weighted, which derives its",
       "weights from 2025 ACLED indicators; read as a sanity check, not external validation.",
       "Conflict (2021\u20132025) and Conflict (2016\u20132025) include 2025 and are therefore",
-      "partially endogenous for v3. v1 is independent of all conflict windows."
+      "partially endogenous for v2. v1 is independent of all conflict windows."
     )
   ) |>
   gt::tab_options(
@@ -572,7 +572,7 @@ cat("\nComparison complete.\n")
 # ============================================================================
 # D. Unit-Level Rank Tables — side-by-side ADM1 rankings across variants
 # ============================================================================
-# For each country and each version family (v1 / v3):
+# For each country and each version family (v1 / v2):
 #   Region | SEPI | Primary Rank | Z-score Rank | Δ | BoD Rank | Δ
 #   Sorted by primary rank (rank 1 = best-off, highest SEPI).
 #   Amber cells = |Δ| >= 3 (large enough to change a targeting decision).
@@ -598,12 +598,12 @@ for (country in COUNTRIES) {
                       `BoD Rank` = rank_b, `Shift.b` = shift_b),
         row.names = FALSE)
 
-  cat(country_label(country), "— v3 family:\n")
-  rt_v3 <- build_rank_table(results_v3, results_v3_zscore, results_v3_bod, country)
-  print(as.data.frame(rt_v3) |>
+  cat(country_label(country), "— v2 family:\n")
+  rt_v2 <- build_rank_table(results_v2, results_v2_zscore, results_v2_bod, country)
+  print(as.data.frame(rt_v2) |>
         dplyr::select(-worst5) |>
         dplyr::rename(Region = adm1_name, SEPI = sepi_p,
-                      `v3 Rank` = rank_p, `z-score Rank` = rank_z, `Shift.z` = shift_z,
+                      `v2 Rank` = rank_p, `z-score Rank` = rank_z, `Shift.z` = shift_z,
                       `BoD Rank` = rank_b, `Shift.b` = shift_b),
         row.names = FALSE)
   cat("\n")
@@ -618,13 +618,13 @@ for (country in COUNTRIES) {
                                         paste0("ranks_v1_", country))
   )
   save_rank_table_png(
-    rt_v3,
-    title_str   = paste0(country_label(country), " — v3 Rank Stability"),
-    primary_lbl = "v3 Rank",
+    rt_v2,
+    title_str   = paste0(country_label(country), " — v2 Rank Stability"),
+    primary_lbl = "v2 Rank",
     zscore_lbl  = "z-score Rank",
     bod_lbl     = "BoD Rank",
     fname       = versioned_output_path(NULL, "figures", "compare_versions",
-                                        paste0("ranks_v3_", country))
+                                        paste0("ranks_v2_", country))
   )
 }
 
