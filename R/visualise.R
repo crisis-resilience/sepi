@@ -90,21 +90,6 @@ plot_pillar_heatmap <- function(sepi_result, country_name,
                           levels = sepi_result$adm1_name[order(sepi_result$sepi)])
     )
 
-  conflict_col <- "count_conflicts_events_per_1k_2025"
-  if (!is.null(conflict_data) && conflict_col %in% names(conflict_data)) {
-    raw <- conflict_data[[conflict_col]]
-    rng <- range(raw, na.rm = TRUE)
-    normalised <- if (diff(rng) > 0) 1 - (raw - rng[1]) / diff(rng) else rep(NA_real_, length(raw))
-
-    df_conflict <- dplyr::tibble(
-      adm1_name = factor(conflict_data$adm1_name,
-                         levels = levels(df_long$adm1_name)),
-      pillar    = "Conflict\n(per 1k)",
-      score     = normalised
-    )
-    df_long <- dplyr::bind_rows(df_long, df_conflict)
-  }
-
   p <- ggplot(df_long, aes(x = pillar, y = adm1_name, fill = score)) +
     geom_tile(colour = "white", linewidth = 0.5) +
     scale_fill_distiller(palette = "RdYlGn", direction = 1,
@@ -114,7 +99,7 @@ plot_pillar_heatmap <- function(sepi_result, country_name,
       title   = paste("Pillar Scores:", label),
       x       = NULL,
       y       = NULL,
-      caption = "Scores are normalised to a 0–1 scale. Higher values indicate better socio-economic conditions.\nConflict column (where shown) is inverted so that higher values indicate lower conflict intensity."
+      caption = "Scores are normalised to a 0–1 scale. Higher values indicate better socio-economic conditions."
     ) +
     theme_sepi() +
     theme(
