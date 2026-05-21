@@ -67,6 +67,8 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         "  Sheet: SEPI_Results",
         "  Sheet: Indicator_Scores",
         "  Sheet: Indicator_Details",
+        "  Sheet: Conflict_Data",
+        "  Sheet: Pillar_Descriptions",
         "",
         "Methodology Overview",
         "",
@@ -86,7 +88,8 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
           "This file presents a composite indicator designed to measure relative ",
           "socio-economic conditions relevant to peacebuilding across Admin-1 regions ",
           "in Kenya, Somalia, and South Sudan, based on the latest available ",
-          "cross-sectional data."
+          "cross-sectional data. Two Admin-1 units are excluded from all analyses: ",
+          "Abyei (South Sudan) and Middle Juba (Somalia)."
         ),
         "",
         "This workbook contains several sheets detailing the index construction and results:",
@@ -102,6 +105,16 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         paste0(
           "Documents the indicator, polarity, pillar mapping, and effective weight ",
           "assigned to each indicator, providing full transparency on the index construction."
+        ),
+        paste0(
+          "ACLED-sourced conflict event and fatality counts per Admin-1 region, by year ",
+          "(2016–2025). Includes total events, total fatalities, and rates per 100,000 population. ",
+          "This data is used for criterion validity assessment and is not part of the index construction."
+        ),
+        paste0(
+          "Describes each of the five pillar domains (Food Security, Education, Health, ",
+          "Income & Livelihoods, Climate): the dashboard display name, a short description, ",
+          "and a detailed overview of the pillar’s scope and relevance to peacebuilding."
         ),
         "",
         "The index was constructed using the following steps:",
@@ -134,11 +147,12 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         "Regions are ranked within each country (1 = best socio-economic conditions).",
         "",
         paste0(
-          "The final index is a relative measure. A score closer to 1 indicates ",
-          "relatively better socio-economic conditions for peacebuilding compared ",
-          "to other regions in this analysis. A score closer to 0 indicates ",
-          "relatively more challenging conditions. It does not represent an ",
-          "absolute measure of 'peace' or 'development'."
+          "The final index is a relative, within-country measure. A score closer ",
+          "to 1 indicates relatively better socio-economic conditions for ",
+          "peacebuilding compared to other regions in the same country. A score ",
+          "closer to 0 indicates relatively more challenging conditions. Scores ",
+          "are not comparable across countries. It does not represent an absolute ",
+          "measure of 'peace' or 'development'."
         )
       ),
       stringsAsFactors = FALSE
@@ -156,6 +170,8 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         "Sheet: SEPI_Results",
         "Sheet: Indicator_Scores",
         "Sheet: Indicator_Details",
+        "Sheet: Conflict_Data",
+        "Sheet: Pillar_Descriptions",
         "",
         "Methodology Overview",
         "",
@@ -174,7 +190,8 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
           "This file presents a composite indicator designed to measure relative ",
           "socio-economic conditions relevant to peacebuilding across Admin-1 regions ",
           "in Kenya, Somalia, and South Sudan, based on the latest available ",
-          "cross-sectional data."
+          "cross-sectional data. Two Admin-1 units are excluded from all analyses: ",
+          "Abyei (South Sudan) and Middle Juba (Somalia)."
         ),
         "",
         "This workbook contains several sheets detailing the index construction and results:",
@@ -198,6 +215,17 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         paste0(
           "Documents the pillar-indicator mapping, polarity, and effective weight ",
           "assigned to each indicator, providing full transparency on the index construction."
+        ),
+        paste0(
+          "ACLED-sourced conflict event and fatality counts per Admin-1 region, by year ",
+          "(2016–2025). Includes total events, total fatalities, and rates per 100,000 ",
+          "population. This data is used for criterion validity assessment and is not ",
+          "part of the index construction."
+        ),
+        paste0(
+          "Describes each of the five pillar domains (Food Security, Education, Health, ",
+          "Income & Livelihoods, Climate): the dashboard display name, a short description, ",
+          "and a detailed overview of the pillar's scope and relevance to peacebuilding."
         ),
         "",
         "The index was constructed using the following steps:",
@@ -238,11 +266,12 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         "Regions are ranked within each country (1 = best socio-economic conditions).",
         "",
         paste0(
-          "The final index is a relative measure. A score closer to 1 indicates ",
-          "relatively better socio-economic conditions for peacebuilding compared ",
-          "to other regions in this analysis. A score closer to 0 indicates ",
-          "relatively more challenging conditions. It does not represent an ",
-          "absolute measure of 'peace' or 'development'."
+          "The final index is a relative, within-country measure. A score closer ",
+          "to 1 indicates relatively better socio-economic conditions for ",
+          "peacebuilding compared to other regions in the same country. A score ",
+          "closer to 0 indicates relatively more challenging conditions. Scores ",
+          "are not comparable across countries. It does not represent an absolute ",
+          "measure of 'peace' or 'development'."
         )
       ),
       stringsAsFactors = FALSE
