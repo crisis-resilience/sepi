@@ -6,7 +6,6 @@
 #   - Metadata from the global metadata CSV (GLOBAL_DATA$metadata_file)
 #   - Statistical quality checks (missingness, skewness, variance)
 #   - Relevance signals (Spearman correlation with the current SEPI score)
-#   - PCA feasibility flags (n/p ratio per pillar)
 #
 # Main entry points:
 #   load_metadata(country, ...)               -> data frame of variable metadata
@@ -159,24 +158,13 @@ suggest_pillar <- function(description) {
     "population_total.x", "population_total.y")
 }
 
-# ---- Build PCA feasibility flag -------------------------------------------
-
-.pca_feasible <- function(n_obs, current_pillar_sizes, max_n_p_ratio = 5) {
-  # Returns TRUE if the country can support at least 2 indicators per pillar
-  # given the n/p ≥ max_n_p_ratio rule
-  max_per_pillar <- floor(n_obs / max_n_p_ratio)
-  # A candidate is "pca_feasible" if the pillar it would go into would still
-  # have n/p >= 5 after adding it.  Reported per candidate (current+1).
-  max_per_pillar >= 2
-}
-
 # ---- Main exploration function --------------------------------------------
 
 #' Explore candidate indicators for one country
 #'
 #' Profiles all numeric columns not already assigned to a SEPI pillar or
 #' used as ID / population columns.  Each candidate is checked for
-#' missingness, variance, skewness, PCA feasibility, and (optionally)
+#' missingness, variance, skewness, and (optionally)
 #' Spearman correlation with the current SEPI score.
 #'
 #' @param country        Country key, e.g. "kenya"
@@ -221,10 +209,7 @@ explore_country_candidates <- function(
     return(invisible(NULL))
   }
 
-  # ---- Compute current pillar sizes (for PCA feasibility) -------------------
-  pillar_sizes <- sapply(country_config$pillars,
-                         function(p) length(p$indicators))
-
+ 
   # ---- Build profile for each candidate -------------------------------------
   rows <- lapply(candidates, function(col) {
     x    <- raw_data[[col]]
@@ -260,20 +245,12 @@ explore_country_candidates <- function(
       paste(col, description, category, sep = " ")
     )
 
-    current_size <- if (!is.na(suggested_pillar) &&
-                        suggested_pillar %in% names(pillar_sizes)) {
-      pillar_sizes[suggested_pillar]
-    } else {
-      1L
-    }
-    pca_feasible <- (n_obs / (current_size + 1L)) >= 5
-
+   
     # Build quality flags
     flags <- character(0)
     if (prof$missing_pct > 5)                             flags <- c(flags, "high_missingness")
     if (!is.na(prof$cv)       && prof$cv < 0.01)          flags <- c(flags, "near_zero_variance")
     if (!is.na(prof$skewness) && abs(prof$skewness) > 2)  flags <- c(flags, "high_skewness")
-    if (!pca_feasible)                                    flags <- c(flags, "pca_n_p_too_low")
     if (!is.na(suggested_pillar) && suggested_pillar == "conflict")
                                                           flags <- c(flags, "conflict_exploratory_only")
 
@@ -295,7 +272,6 @@ explore_country_candidates <- function(
       cv               = prof$cv,
       skewness         = prof$skewness,
       spearman_r_sepi  = r_sepi,
-      pca_feasible     = pca_feasible,
       flags            = if (length(flags) == 0) "" else paste(flags, collapse = "; "),
       stringsAsFactors = FALSE
     )

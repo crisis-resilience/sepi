@@ -9,67 +9,7 @@
 #
 # The entire pipeline is parameterised by a *version* object (see config.R).
 #
-# When version$within_pillar_agg == "pca":
-#   - Pillars with >= 2 indicators: PC1 loadings become the within-pillar weights.
-#   - Pillars with 1 indicator: the single normalised indicator is used directly.
 # ============================================================================
-
-# ---- PCA weight computation -------------------------------------------------
-
-#' Derive within-pillar weights from the first principal component
-#'
-#' Runs PCA on the matrix of normalised (polarity-aligned) indicator columns
-#' and returns absolute PC1 loadings rescaled to sum to 1.
-#' Returns equal weights if PCA cannot be computed (too few observations,
-#' constant columns, or fewer than 2 indicators).
-#'
-#' @param norm_mat  Numeric matrix — rows = regions, cols = normalised indicators
-#' @return Named numeric vector of weights that sum to 1
-compute_pca_weights <- function(norm_mat) {
-  if (ncol(norm_mat) < 2) {
-    # Single indicator — trivial weight
-    return(stats::setNames(1, colnames(norm_mat)))
-  }
-
-  complete <- norm_mat[stats::complete.cases(norm_mat), , drop = FALSE]
-
-  # Need at least 3 complete observations and 2 non-constant columns
-  nonconst <- apply(complete, 2, function(x) stats::sd(x) > 1e-10)
-  if (nrow(complete) < 3 || sum(nonconst) < 2) {
-    # Fall back to equal weights
-    n <- ncol(norm_mat)
-    return(stats::setNames(rep(1 / n, n), colnames(norm_mat)))
-  }
-
-  pca <- tryCatch(
-    stats::prcomp(complete[, nonconst, drop = FALSE],
-                  center = TRUE, scale. = TRUE),
-    error = function(e) NULL
-  )
-
-  if (is.null(pca)) {
-    n <- ncol(norm_mat)
-    return(stats::setNames(rep(1 / n, n), colnames(norm_mat)))
-  }
-
-  # Use absolute PC1 loadings for the non-constant columns
-  loadings_nonconst <- abs(pca$rotation[, 1])
-
-  # Build full weight vector (constant columns get weight 0)
-  weights_full <- stats::setNames(rep(0, ncol(norm_mat)), colnames(norm_mat))
-  weights_full[nonconst] <- loadings_nonconst
-
-  # Rescale to sum to 1
-  if (sum(weights_full) > 1e-10) {
-    weights_full <- weights_full / sum(weights_full)
-  } else {
-    weights_full <- rep(1 / ncol(norm_mat), ncol(norm_mat))
-    names(weights_full) <- colnames(norm_mat)
-  }
-
-  weights_full
-}
-
 # ---- v2 helpers: imputation and conflict weights ----------------------------
 
 #' Impute missing values for v2 conflict-weighted computation
@@ -636,33 +576,14 @@ compute_sepi <- function(data, version, country_name = NULL, country_config = NU
       next
     }
 
-    if (version$within_pillar_agg == "pca") {
-
-      if (length(norm_cols) == 1) {
-        # Single-indicator pillar: use directly, no PCA needed
-        data[[paste0("pillar_", p_name)]] <- data[[norm_cols]]
-
-      } else {
-        # PCA-derived weights from the full normalised matrix
-        norm_mat  <- as.matrix(data[, norm_cols, drop = FALSE])
-        ind_wts   <- compute_pca_weights(norm_mat)
-
-        data[[paste0("pillar_", p_name)]] <- apply(
-          norm_mat, 1,
-          function(row) aggregate_scores(row, w = ind_wts, method = "arithmetic")
-        )
+    data[[paste0("pillar_", p_name)]] <- apply(
+      data[, norm_cols, drop = FALSE], 1,
+      function(row) {
+        aggregate_scores(row,
+                         method = version$within_pillar_agg,
+                         floor  = version$geometric_floor)
       }
-
-    } else {
-      data[[paste0("pillar_", p_name)]] <- apply(
-        data[, norm_cols, drop = FALSE], 1,
-        function(row) {
-          aggregate_scores(row,
-                           method = version$within_pillar_agg,
-                           floor  = version$geometric_floor)
-        }
-      )
-    }
+    )
   }
 
   # 3b. Apply pillar-level NA fill (version$pillar_na_fill = list(food_security = 0, ...))

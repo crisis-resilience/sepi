@@ -4,7 +4,6 @@
 # Applies a battery of statistical quality checks to the configured indicator
 # set before the SEPI index is computed.  Checks follow the OECD/JRC Handbook
 # on Constructing Composite Indicators (2008), Steps 2 and 4, extended with
-# PCA-specific requirements for within-pillar weighting.
 #
 # Main entry points:
 #   screen_indicators(data, country_config)       -> per-indicator flag table
@@ -13,17 +12,13 @@
 # Checks implemented:
 #   Always (n >= 1):
 #     - Missingness      : > 5% missing values      (Handbook §1.3)
-#     - Near-zero variance: CV < 0.01               (PCA instability)
-#     - High skewness    : |skew| > 2               (distorts min-max + PCA)
+#     - Near-zero variance: CV < 0.01              (Handbook §1.3)
+#     - High skewness    : |skew| > 2               (distorts min-max)
 #
 #   Only when pillar has n >= 2 indicators:
-#     - PCA n/p ratio    : n_obs / n_indicators < 5 (Handbook §1.4)
 #     - Redundancy       : within-pillar Spearman r > 0.95
 #     - Incoherence      : within-pillar Spearman r < 0.20
-#     - PC1 variance     : < 40% of total variance in pillar
 #
-#   Informational (no action needed):
-#     - Single-indicator pillar: PCA skipped, indicator used directly
 # ============================================================================
 
 # ---- Helper: skewness -------------------------------------------------------
@@ -61,50 +56,6 @@
   )
 }
 
-# ---- Helper: PCA summary for a pillar ---------------------------------------
-#
-# Runs PCA on polarity-aligned, raw (not normalised) pillar columns.
-# Returns a list with:
-#   pc1_var_pct   : % of variance explained by PC1
-#   loadings      : named vector of PC1 loadings (absolute)
-#   weights       : PC1 loadings rescaled to sum to 1
-#   n_components  : number of components with eigenvalue >= 1 (Kaiser)
-
-.pillar_pca <- function(data, indicators) {
-  mat <- as.matrix(data[, indicators, drop = FALSE])
-  complete <- mat[stats::complete.cases(mat), , drop = FALSE]
-
-  if (nrow(complete) < 3 || ncol(complete) < 2) return(NULL)
-
-  # Remove constant columns (would break prcomp)
-  nonconst <- apply(complete, 2, function(x) sd(x) > 1e-10)
-  if (sum(nonconst) < 2) return(NULL)
-  complete <- complete[, nonconst, drop = FALSE]
-
-  pca <- tryCatch(
-    stats::prcomp(complete, center = TRUE, scale. = TRUE),
-    error = function(e) NULL
-  )
-  if (is.null(pca)) return(NULL)
-
-  var_explained <- pca$sdev^2 / sum(pca$sdev^2)
-  pc1_var_pct   <- round(var_explained[1] * 100, 1)
-
-  # PC1 loadings — use absolute values for weighting
-  loadings_raw <- abs(pca$rotation[, 1])
-  weights      <- loadings_raw / sum(loadings_raw)
-
-  # Kaiser criterion: eigenvalues >= 1
-  n_kaiser <- sum(pca$sdev^2 >= 1)
-
-  list(
-    pc1_var_pct  = pc1_var_pct,
-    loadings_raw = round(loadings_raw, 4),
-    weights      = round(weights, 4),
-    n_kaiser     = n_kaiser
-  )
-}
-
 # ---- Core screening function ------------------------------------------------
 
 #' Screen configured indicators for one country
@@ -116,11 +67,10 @@
 #' @return A data frame with one row per indicator and columns:
 #'   pillar, indicator, label,
 #'   n_obs, n_available, missing_pct, cv, skewness,
-#'   n_pillar_indicators, pca_applies,
-#'   within_pillar_r_min, within_pillar_r_max,  (NA if pca_applies = FALSE)
-#'   pc1_var_pct, pc1_loading, pca_weight,       (NA if pca_applies = FALSE)
+#'   n_pillar_indicators,
+#'   within_pillar_r_min, within_pillar_r_max,  (NA if multi_indicator = FALSE)
 #'   flag_missingness, flag_low_variance, flag_skewness,
-#'   flag_pca_n_p, flag_redundant, flag_incoherent, flag_pc1_low,
+#'   flag_redundant, flag_incoherent, 
 #'   flags_summary
 screen_indicators <- function(data, country_config, country_name = NULL) {
 
@@ -140,9 +90,9 @@ screen_indicators <- function(data, country_config, country_name = NULL) {
     polarities  <- pillar$polarity
     labels      <- pillar$labels
     n_inds      <- length(indicators)
-    pca_applies <- n_inds >= 2
+    multi_indicator <- n_inds >= 2
 
-    # ---- Polarity-align the pillar columns for PCA --------------------------
+    # ---- Polarity-align the pillar columns for correlation ------------------
     aligned_cols <- paste0(indicators, "_screen_aligned")
     for (i in seq_along(indicators)) {
       if (!indicators[i] %in% names(data)) next
@@ -150,13 +100,12 @@ screen_indicators <- function(data, country_config, country_name = NULL) {
       data[[aligned_cols[i]]] <- if (polarities[i] == -1) -x else x
     }
 
-    # ---- Per-pillar correlation matrix and PCA (if n >= 2) ------------------
+    # ---- Per-pillar correlation matrix (if n >= 2) --------------------------
     avail_aligned <- aligned_cols[aligned_cols %in% names(data)]
 
     pillar_cor   <- NULL
-    pillar_pca_r <- NULL
 
-    if (pca_applies && length(avail_aligned) >= 2) {
+    if (multi_indicator && length(avail_aligned) >= 2) {
       mat_aligned <- as.matrix(data[, avail_aligned, drop = FALSE])
 
       pillar_cor <- tryCatch(
@@ -164,11 +113,8 @@ screen_indicators <- function(data, country_config, country_name = NULL) {
         error = function(e) NULL
       )
 
-      pillar_pca_r <- .pillar_pca(data, avail_aligned)
     }
 
-    # ---- Check PCA n/p ratio for the whole pillar ---------------------------
-    flag_pca_np_pillar <- pca_applies && (n_obs / n_inds < 5)
 
     # ---- Per-indicator rows -------------------------------------------------
     for (i in seq_along(indicators)) {
@@ -180,13 +126,11 @@ screen_indicators <- function(data, country_config, country_name = NULL) {
           pillar = p_name, indicator = ind, label = lbl,
           n_obs = n_obs, n_available = 0L, missing_pct = 100,
           cv = NA_real_, skewness = NA_real_,
-          n_pillar_indicators = n_inds, pca_applies = pca_applies,
+          n_pillar_indicators = n_inds,
           within_pillar_r_min = NA_real_, within_pillar_r_max = NA_real_,
-          pc1_var_pct = NA_real_, pc1_loading = NA_real_, pca_weight = NA_real_,
           flag_missingness = TRUE, flag_low_variance = FALSE,
-          flag_skewness = FALSE, flag_pca_n_p = FALSE,
+          flag_skewness = FALSE,
           flag_redundant = FALSE, flag_incoherent = FALSE,
-          flag_pc1_low = FALSE,
           flags_summary = "not_in_data",
           stringsAsFactors = FALSE
         )
@@ -201,13 +145,13 @@ screen_indicators <- function(data, country_config, country_name = NULL) {
       flag_var  <- !is.na(stat$cv) && stat$cv < 0.01
       flag_skew <- !is.na(stat$skewness) && abs(stat$skewness) > 2
 
-      # ---- Within-pillar correlation flags (only if pca_applies) ------------
+      # ---- Within-pillar correlation flags (only if multi_indicator) ------------
       flag_redundant   <- FALSE
       flag_incoherent  <- FALSE
       r_min            <- NA_real_
       r_max            <- NA_real_
 
-      if (pca_applies && !is.null(pillar_cor)) {
+      if (multi_indicator && !is.null(pillar_cor)) {
         aligned_col <- aligned_cols[i]
         if (aligned_col %in% rownames(pillar_cor)) {
           row_cors <- pillar_cor[aligned_col, ]
@@ -221,32 +165,13 @@ screen_indicators <- function(data, country_config, country_name = NULL) {
         }
       }
 
-      # ---- PCA output for this indicator ------------------------------------
-      pc1_var_pct <- NA_real_
-      pc1_loading <- NA_real_
-      pca_weight  <- NA_real_
-      flag_pc1_low <- FALSE
-
-      if (pca_applies && !is.null(pillar_pca_r)) {
-        pc1_var_pct  <- pillar_pca_r$pc1_var_pct
-        flag_pc1_low <- !is.na(pc1_var_pct) && pc1_var_pct < 40
-
-        aligned_col <- aligned_cols[i]
-        if (aligned_col %in% names(pillar_pca_r$loadings_raw)) {
-          pc1_loading <- pillar_pca_r$loadings_raw[[aligned_col]]
-          pca_weight  <- pillar_pca_r$weights[[aligned_col]]
-        }
-      }
-
       # ---- Combine flags ----------------------------------------------------
       active_flags <- c(
         if (flag_miss)      "high_missingness",
         if (flag_var)       "near_zero_variance",
         if (flag_skew)      "high_skewness",
-        if (flag_pca_np_pillar) "pca_n_p_too_low",
         if (flag_redundant) "redundant_r>0.95",
-        if (flag_incoherent)"incoherent_r<0.20",
-        if (flag_pc1_low)   "pc1_var_pct<40"
+        if (flag_incoherent)"incoherent_r<0.20"
       )
 
       rows[[length(rows) + 1]] <- data.frame(
@@ -259,19 +184,13 @@ screen_indicators <- function(data, country_config, country_name = NULL) {
         cv                  = stat$cv,
         skewness            = stat$skewness,
         n_pillar_indicators = n_inds,
-        pca_applies         = pca_applies,
         within_pillar_r_min = r_min,
         within_pillar_r_max = r_max,
-        pc1_var_pct         = pc1_var_pct,
-        pc1_loading         = pc1_loading,
-        pca_weight          = pca_weight,
         flag_missingness    = flag_miss,
         flag_low_variance   = flag_var,
         flag_skewness       = flag_skew,
-        flag_pca_n_p        = flag_pca_np_pillar,
         flag_redundant      = flag_redundant,
         flag_incoherent     = flag_incoherent,
-        flag_pc1_low        = flag_pc1_low,
         flags_summary       = if (length(active_flags) == 0) "OK" else
                                 paste(active_flags, collapse = "; "),
         stringsAsFactors    = FALSE
@@ -283,25 +202,7 @@ screen_indicators <- function(data, country_config, country_name = NULL) {
 
     # ---- Print pillar summary -----------------------------------------------
     cat("\n-- Pillar:", pillar_label(p_name), "--\n")
-    cat("   Indicators:", n_inds, "|",
-        if (pca_applies) "PCA applies" else "Single indicator — PCA skipped", "\n")
-
-    if (pca_applies && !is.null(pillar_pca_r)) {
-      cat("   PC1 variance explained:", pillar_pca_r$pc1_var_pct, "%",
-          if (pillar_pca_r$pc1_var_pct < 40) "[FLAG: < 40%]" else "[OK]", "\n")
-      cat("   PC1 loadings (absolute):",
-          paste(names(pillar_pca_r$loadings_raw),
-                round(pillar_pca_r$loadings_raw, 3), sep = "=", collapse = "  "),
-          "\n")
-      cat("   PCA weights:",
-          paste(names(pillar_pca_r$weights),
-                round(pillar_pca_r$weights, 3), sep = "=", collapse = "  "),
-          "\n")
-      if (flag_pca_np_pillar) {
-        cat("   [FLAG] n/p ratio =", round(n_obs / n_inds, 1),
-            "< 5 — consider reducing indicators\n")
-      }
-    }
+    cat("   Indicators:", n_inds, "\n")
   }
 
   result <- do.call(rbind, rows)

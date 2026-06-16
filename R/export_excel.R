@@ -604,7 +604,7 @@ export_sepi_excel_raw_subindicators <- function(sepi_results,
                                                 version,
                                                 output_dir = "outputs") {
 
-  fname <- file.path(output_dir, "sepi_results_v1_equal_weighted_raw_subindicators.xlsx")
+  fname <- file.path(output_dir, paste0(version$name, ".xlsx"))
   wb    <- openxlsx::createWorkbook()
 
   header_style <- openxlsx::createStyle(textDecoration = "bold")
