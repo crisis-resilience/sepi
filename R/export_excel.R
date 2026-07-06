@@ -46,13 +46,41 @@ export_sepi_excel <- function(sepi_results,
 
 # ---- Sheet builders --------------------------------------------------------
 
-build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FALSE) {
+build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FALSE, country = NULL) {
 
   norm_label <- switch(version$normalisation,
     min_max = "Min-Max (0-1)",
     z_score = "Z-Score",
     rank    = "Rank-based (0-1)"
   )
+
+  # When `country` is set, the workbook is a single-country extract (e.g. the
+  # Somalia-only export) rather than the full multi-country workbook — adjust
+  # the scope language and exclusion/extract notes accordingly.
+  scope_label <- if (!is.null(country)) country_label(country) else "Kenya, Somalia, and South Sudan"
+  results_scope <- if (!is.null(country)) {
+    paste0("for each Admin-1 region in ", scope_label)
+  } else {
+    "for each Admin-1 region, for all countries"
+  }
+  exclusion_note <- if (!is.null(country)) {
+    if (country == "somalia") {
+      " Middle Juba is excluded from SEPI scoring due to insufficient data."
+    } else {
+      ""
+    }
+  } else {
+    " Two Admin-1 units are excluded from all analyses: Abyei (South Sudan) and Middle Juba (Somalia)."
+  }
+  extract_note <- if (!is.null(country)) {
+    paste0(
+      " This is a ", scope_label, "-specific extract of the full multi-country ",
+      "SEPI workbook (Kenya, Somalia, South Sudan); refer to the combined ",
+      "workbook for cross-country context and methodology comparisons."
+    )
+  } else {
+    ""
+  }
 
   if (isTRUE(version$conflict_weighting)) {
     # v2-specific README content
@@ -87,16 +115,15 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         paste0(
           "This file presents a composite indicator designed to measure relative ",
           "socio-economic conditions relevant to peacebuilding across Admin-1 regions ",
-          "in Kenya, Somalia, and South Sudan, based on the latest available ",
-          "cross-sectional data. Two Admin-1 units are excluded from all analyses: ",
-          "Abyei (South Sudan) and Middle Juba (Somalia)."
+          "in ", scope_label, ", based on the latest available cross-sectional data.",
+          exclusion_note, extract_note
         ),
         "",
         "This workbook contains several sheets detailing the index construction and results:",
         "",
         paste0(
           "Contains the final SEPI score, pillar-level scores, and relative rank ",
-          "for each Admin-1 region, for all countries."
+          results_scope, "."
         ),
         paste0(
           "Shows the normalised (0-1) score for each individual granular sub-indicator. ",
@@ -113,8 +140,8 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         ),
         paste0(
           "Describes each of the five pillar domains (Food Security, Education, Health, ",
-          "Income & Livelihoods, Climate): the dashboard display name, a short description, ",
-          "and a detailed overview of the pillar’s scope and relevance to peacebuilding."
+          "Income & Livelihoods, Climate): a short description and a detailed overview ",
+          "of the pillar’s scope and relevance to peacebuilding."
         ),
         "",
         "The index was constructed using the following steps:",
@@ -189,16 +216,15 @@ build_readme_sheet <- function(wb, version, header_style, raw_subindicators = FA
         paste0(
           "This file presents a composite indicator designed to measure relative ",
           "socio-economic conditions relevant to peacebuilding across Admin-1 regions ",
-          "in Kenya, Somalia, and South Sudan, based on the latest available ",
-          "cross-sectional data. Two Admin-1 units are excluded from all analyses: ",
-          "Abyei (South Sudan) and Middle Juba (Somalia)."
+          "in ", scope_label, ", based on the latest available cross-sectional data.",
+          exclusion_note, extract_note
         ),
         "",
         "This workbook contains several sheets detailing the index construction and results:",
         "",
         paste0(
           "Contains the final SEPI score, pillar-level scores, and relative rank ",
-          "for each Admin-1 region, for all countries."
+          results_scope, "."
         ),
         if (raw_subindicators) {
           paste0(
@@ -638,13 +664,6 @@ build_pillar_descriptions_sheet <- function(wb, header_style) {
       "Economic welfare per capita",
       "Climate resilience based on temperature, vegetation change, and elevation factors"
     ),
-    `Dashboard Pillar Name` = c(
-      "Food Security Index",
-      "Education Index",
-      "Health Access Index",
-      "Poverty Reduction Index",
-      "Climate Resilience Index"
-    ),
     pillar_overview = c(
       paste(
         "This pillar measures the severity of food insecurity across Admin-1 regions using the share of the population classified in IPC Phase 3 (Crisis) or higher.",
@@ -685,13 +704,13 @@ build_pillar_descriptions_sheet <- function(wb, header_style) {
   openxlsx::writeData(wb, "Pillar_Descriptions", pillar_desc, headerStyle = header_style)
   openxlsx::setColWidths(wb, "Pillar_Descriptions", cols = 1, widths = 25)
   openxlsx::setColWidths(wb, "Pillar_Descriptions", cols = 2, widths = 80)
-  openxlsx::setColWidths(wb, "Pillar_Descriptions", cols = 4, widths = 120)
+  openxlsx::setColWidths(wb, "Pillar_Descriptions", cols = 3, widths = 120)
   wrap_style <- openxlsx::createStyle(wrapText = TRUE)
   openxlsx::addStyle(wb, "Pillar_Descriptions", style = wrap_style,
-                     rows = 2:6, cols = 4, gridExpand = TRUE)
+                     rows = 2:6, cols = 3, gridExpand = TRUE)
 }
 
-build_conflict_data_sheet <- function(wb, header_style) {
+build_conflict_data_sheet <- function(wb, header_style, country_code = NULL) {
   conflict_path <- "data/socio-economic/conflict.csv"
   if (!file.exists(conflict_path)) {
     warning("conflict.csv not found at '", conflict_path, "' — Conflict_Data sheet skipped.")
@@ -699,6 +718,10 @@ build_conflict_data_sheet <- function(wb, header_style) {
   }
 
   conflict_data <- utils::read.csv(conflict_path, stringsAsFactors = FALSE, check.names = FALSE)
+
+  if (!is.null(country_code)) {
+    conflict_data <- conflict_data[conflict_data[["country_code"]] == country_code, , drop = FALSE]
+  }
 
   # Convert per-1k rate columns to per-100k (multiply by 100, round to 2 dp, rename)
   per1k_cols <- grep("_per_1k_", names(conflict_data), value = TRUE)
