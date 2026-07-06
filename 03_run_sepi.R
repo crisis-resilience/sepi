@@ -14,6 +14,7 @@ for (pkg in c("ggrepel", "openxlsx", "sf", "patchwork")) {
 source("R/conflict_analysis.R")
 source("R/visualise.R")
 source("R/export_excel.R")
+source("R/export_geojson.R")
 
 # ── Configure ─────────────────────────────────────────────────────────────────
 # When sourced from run_all.R, .sepi_run_version is set there; otherwise use the
@@ -27,6 +28,7 @@ conflict_results <- analyse_conflict_all(sepi_results, version)
 
 generate_all_plots(sepi_results, conflict_results, version)
 out_file <- export_sepi_excel_raw_subindicators(sepi_results, version)
+export_sepi_geojson(sepi_results, version)
 
 if (isTRUE(version$conflict_weighting)) {
   render_polarity_audits(sepi_results, version)
