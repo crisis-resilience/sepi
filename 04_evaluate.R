@@ -25,8 +25,8 @@ source("R/criterion_validity_conflict.R")
 # ── Configure + Load ──────────────────────────────────────────────────────────
 # When sourced from run_all.R, .sepi_run_version is set there; otherwise use the
 # version defined below.
-version      <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v1_equal_geometric  # ← change to switch version under evaluation
-all_data     <- load_all_data(version = version)
+version <- if (exists(".sepi_run_version")) .sepi_run_version else VERSIONS$v1_equal_geometric # ← change to switch version under evaluation
+all_data <- load_all_data(version = version)
 sepi_results <- compute_all_countries(all_data, version)
 
 # ── A. Version comparison ─────────────────────────────────────────────────────
@@ -91,8 +91,8 @@ for (country in names(sepi_results)) {
   )
 
   n_matched <- nrow(merged)
-  n_sepi    <- nrow(sepi_df)
-  n_idp     <- nrow(idp_country)
+  n_sepi <- nrow(sepi_df)
+  n_idp <- nrow(idp_country)
 
   if (n_matched < 3) {
     cat(sprintf(
@@ -102,15 +102,22 @@ for (country in names(sepi_results)) {
     next
   }
 
-  rho   <- stats::cor(merged$sepi, merged$pop_frac_norm,
-                      method = "spearman", use = "complete.obs")
+  rho <- stats::cor(merged$sepi, merged$pop_frac_norm,
+    method = "spearman", use = "complete.obs"
+  )
   p_val <- stats::cor.test(merged$sepi, merged$pop_frac_norm,
-                            method = "spearman", exact = FALSE)$p.value
+    method = "spearman", exact = FALSE
+  )$p.value
 
-  verdict <- if (is.na(rho))         "insufficient data"
-             else if (rho < -0.6)    "SUPPORTED (rho < -0.6)"
-             else if (rho < 0)       "weak negative — not conclusive"
-             else                    "NOT supported (positive or near-zero)"
+  verdict <- if (is.na(rho)) {
+    "insufficient data"
+  } else if (rho < -0.6) {
+    "SUPPORTED (rho < -0.6)"
+  } else if (rho < 0) {
+    "weak negative — not conclusive"
+  } else {
+    "NOT supported (positive or near-zero)"
+  }
 
   cat(sprintf(
     "%s\n  Matched: %d / %d SEPI units  (%d IDP regions)\n  Spearman rho = %.3f  (p = %.3f)\n  Verdict: %s\n\n",
@@ -143,8 +150,8 @@ cat("Criterion validity check complete.\n")
 scatter_plots <- list()
 
 for (country in names(sepi_results)) {
-  cc          <- COUNTRY_CODE_MAP[[country]]
-  sepi_df     <- sepi_results[[country]]
+  cc <- COUNTRY_CODE_MAP[[country]]
+  sepi_df <- sepi_results[[country]]
   idp_country <- dplyr::filter(idp_data, country_code == cc)
   merged <- dplyr::inner_join(
     dplyr::select(sepi_df, adm1_pcode, adm1_name, sepi),
@@ -153,22 +160,32 @@ for (country in names(sepi_results)) {
   )
   if (nrow(merged) < 3) next
 
-  rho   <- round(stats::cor(merged$sepi, merged$pop_frac_norm,
-                             method = "spearman", use = "complete.obs"), 3)
+  rho <- round(stats::cor(merged$sepi, merged$pop_frac_norm,
+    method = "spearman", use = "complete.obs"
+  ), 3)
   p_val <- stats::cor.test(merged$sepi, merged$pop_frac_norm,
-                            method = "spearman", exact = FALSE)$p.value
+    method = "spearman", exact = FALSE
+  )$p.value
   p_lab <- if (p_val < 0.001) "p < 0.001" else sprintf("p = %.3f", p_val)
 
-  scatter_plots[[country]] <- ggplot(merged,
-      aes(x = sepi, y = pop_frac_norm, label = adm1_name)) +
+  scatter_plots[[country]] <- ggplot(
+    merged,
+    aes(x = sepi, y = pop_frac_norm, label = adm1_name)
+  ) +
     geom_point(colour = "#2c7fb8", size = 2.5, alpha = 0.8) +
-    ggrepel::geom_text_repel(size = 2.8, colour = "grey30",
-                              max.overlaps = 15, seed = 42) +
-    geom_smooth(method = "lm", se = TRUE, colour = "#e34a33",
-                linewidth = 0.8, alpha = 0.15) +
-    annotate("text", x = Inf, y = Inf,
-             label = sprintf("Spearman \u03c1 = %s\n%s", rho, p_lab),
-             hjust = 1.1, vjust = 1.5, size = 3.2, colour = "grey20") +
+    ggrepel::geom_text_repel(
+      size = 2.8, colour = "grey30",
+      max.overlaps = 15, seed = 42
+    ) +
+    geom_smooth(
+      method = "lm", se = TRUE, colour = "#e34a33",
+      linewidth = 0.8, alpha = 0.15
+    ) +
+    annotate("text",
+      x = Inf, y = Inf,
+      label = sprintf("Spearman \u03c1 = %s\n%s", rho, p_lab),
+      hjust = 1.1, vjust = 1.5, size = 3.2, colour = "grey20"
+    ) +
     labs(
       title    = country_label(country),
       x        = "SEPI score (higher = better)",
@@ -202,8 +219,10 @@ if (length(scatter_plots) > 0) {
     p_single <- scatter_plots[[country]] +
       labs(caption = displacement_footnote) +
       theme(
-        plot.caption          = element_text(size = 7, colour = "grey40", hjust = 0,
-                                             margin = margin(t = 6)),
+        plot.caption = element_text(
+          size = 7, colour = "grey40", hjust = 0,
+          margin = margin(t = 6)
+        ),
         plot.caption.position = "plot"
       )
     single_path <- versioned_output_path(
@@ -239,20 +258,24 @@ for (window in conflict_windows) {
 
   for (country in names(sepi_results)) {
     sepi_df <- sepi_results[[country]]
-    merged  <- prepare_conflict_match(sepi_df, window)
+    merged <- prepare_conflict_match(sepi_df, window)
     n_matched <- nrow(merged)
 
     if (n_matched < 3) {
-      cat(sprintf("  %s: %d matched units — skipping\n",
-                  country_label(country), n_matched))
+      cat(sprintf(
+        "  %s: %d matched units — skipping\n",
+        country_label(country), n_matched
+      ))
       next
     }
 
-    cv  <- criterion_validity_conflict(sepi_results, country, window)
+    cv <- criterion_validity_conflict(sepi_results, country, window)
 
-    cat(sprintf("%s\n  Matched: %d / %d SEPI units\n  Spearman rho = %.3f  (p = %.3f)  [%s]\n",
-                country_label(country), n_matched, nrow(sepi_df),
-                cv$rho, cv$p, cv$verdict))
+    cat(sprintf(
+      "%s\n  Matched: %d / %d SEPI units\n  Spearman rho = %.3f  (p = %.3f)  [%s]\n",
+      country_label(country), n_matched, nrow(sepi_df),
+      cv$rho, cv$p, cv$verdict
+    ))
 
     out_tbl <- merged |>
       dplyr::left_join(
