@@ -23,7 +23,7 @@
 source("R/config.R")
 
 # ── Version ───────────────────────────────────────────────────────────────────
-active_version <- VERSIONS$v1_equal_geometric  # ← change here
+active_version <- VERSIONS$v1_equal_geometric # ← change here
 
 # Expose to sub-scripts (02_explore, 03_run_sepi, 04_evaluate check for this)
 .sepi_run_version <- active_version
@@ -46,47 +46,67 @@ pipeline_start <- Sys.time()
 cat(sprintf("\nSEPI pipeline starting — version: %s\n", active_version$name))
 
 # ── [1/6] Build data ──────────────────────────────────────────────────────────
-.banner(1, "Build data",
-  "Merging per-country source CSVs and ACLED data into a single global dataset.")
+.banner(
+  1, "Build data",
+  "Merging per-country source CSVs and ACLED data into a single global dataset."
+)
 t0 <- Sys.time()
 source("01_build_data.R")
 cat(sprintf("  Done (%s)\n", .elapsed(t0)))
 
 # ── [2/6] Explore and screen indicators ───────────────────────────────────────
-.banner(2, "Explore and screen indicators",
-  sprintf("Candidate exploration, collinearity screening for: %s", active_version$name))
+.banner(
+  2, "Explore and screen indicators",
+  sprintf("Candidate exploration, collinearity screening for: %s", active_version$name)
+)
 t0 <- Sys.time()
 source("02_explore.R")
 cat(sprintf("  Done (%s)\n", .elapsed(t0)))
 
 # ── [3/6] Compute SEPI ────────────────────────────────────────────────────────
-.banner(3, "Compute SEPI",
-  sprintf("Normalise, aggregate pillars, rank regions, export results for: %s",
-          active_version$name))
+.banner(
+  3, "Compute SEPI",
+  sprintf(
+    "Normalise, aggregate pillars, rank regions, export results for: %s",
+    active_version$name
+  )
+)
 t0 <- Sys.time()
 source("03_run_sepi.R")
 cat(sprintf("  Done (%s)\n", .elapsed(t0)))
 
 # ── [4/6] Criterion validity ──────────────────────────────────────────────────
-.banner(4, "Criterion validity evaluation",
-  sprintf("Spearman correlations with IDP displacement and ACLED conflict for: %s",
-          active_version$name))
+.banner(
+  4, "Criterion validity evaluation",
+  sprintf(
+    "Spearman correlations with IDP displacement and ACLED conflict for: %s",
+    active_version$name
+  )
+)
 t0 <- Sys.time()
 source("04_evaluate.R")
 cat(sprintf("  Done (%s)\n", .elapsed(t0)))
 
 # ── [5/6] Version comparison ──────────────────────────────────────────────────
-.banner(5, "Version comparison",
-  paste("Head-to-head: v1_equal_geometric vs v2_conflict_weighted",
-        "\n        Rank stability, criterion validity (IDP + conflict)"))
+.banner(
+  5, "Version comparison",
+  paste(
+    "Head-to-head: v1_equal_geometric vs v2_conflict_weighted",
+    "\n        Rank stability, criterion validity (IDP + conflict)"
+  )
+)
 t0 <- Sys.time()
 source("05_compare_versions.R")
 cat(sprintf("  Done (%s)\n", .elapsed(t0)))
 
 # ── [6/6] Sensitivity analysis ────────────────────────────────────────────────
-.banner(6, "Sensitivity analysis",
-  paste("Leave-one-indicator (SA1) and leave-one-pillar (SA2)",
-        "\n        for v1_equal_geometric and v2_conflict_weighted"))
+.banner(
+  6, "Sensitivity analysis",
+  paste(
+    "Leave-one-indicator (SA1) and leave-one-pillar (SA2)",
+    "\n        for v1_equal_geometric and v2_conflict_weighted"
+  )
+)
 t0 <- Sys.time()
 source("06_sensitivity_analysis.R")
 cat(sprintf("  Done (%s)\n", .elapsed(t0)))
