@@ -8,7 +8,7 @@
 
   "methodology": {
     "normalisation": "min_max | z_score | rank",
-    "within_pillar_agg": "arithmetic | pca | conflict_weighted",
+    "within_pillar_agg": "arithmetic | conflict_weighted",
     "across_pillar_agg": "geometric | none",
     "weighting": "equal | custom | conflict",
     "geometric_floor": 0.001,
@@ -23,7 +23,7 @@
       "id_cols": ["adm1_pcode", "adm1_name"],
       "population_col": "population_total",
 
-      "_comment_pillar": "--- PILLAR-BASED structure (used with arithmetic / pca aggregation) ---",
+      "_comment_pillar": "--- PILLAR-BASED structure (used with arithmetic aggregation) ---",
       "exclude_regions": [],
       "pillars": {
         "PILLAR_NAME": {
